@@ -25,6 +25,8 @@ serde_json = "1"
 sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 tauri-plugin-dialog = "2.7.3"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 csv = "1.4.0"
 # default-features off: no TLS stack needed, every request targets
 # http://localhost:11434 only (TRD trust boundary).

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ModelManagementCard } from "@/features/settings/ModelManagementCard";
 import { EditProfileModal } from "@/features/settings/EditProfileModal";
+import { UpdateCheckCard } from "@/features/settings/UpdateCheckCard";
 import { GOALS } from "@/features/onboarding/constants";
 import { exportData, type UserState } from "@/lib/api";
 
@@ -125,6 +126,8 @@ export function SettingsPage({
       </Card>
 
       <ModelManagementCard />
+
+      <UpdateCheckCard />
 
       <Card>
         <CardHeader>

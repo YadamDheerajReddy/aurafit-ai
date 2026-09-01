@@ -81,7 +81,7 @@ export function CookMode({
         </button>
       </header>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-8 py-8">
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 overflow-y-auto px-8 py-8">
         <div className="flex items-center gap-3 rounded-full border border-border bg-card px-4 py-2">
           <Timer className="size-4 text-muted-foreground" />
           <span className={`font-mono text-lg font-semibold ${secondsLeft < 0 ? "text-destructive" : "text-foreground"}`}>

@@ -70,7 +70,7 @@ export function EditProfileModal({
         <ProgressDots total={STEPS.length} current={stepIndex} />
       </div>
 
-      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center px-6 py-12">
+      <div className="mx-auto flex w-full max-w-lg min-h-0 flex-1 flex-col justify-center overflow-y-auto px-6 py-12">
         {step === "biometrics" && (
           <BiometricsStep
             value={biometrics}

@@ -7,6 +7,12 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // tauri-plugin-updater's HTTPS requests pull rustls into every
+    // reqwest::Client build via feature unification, including our own
+    // plain-HTTP Ollama client — rustls 0.23+ panics on first use unless a
+    // crypto provider is installed first.
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

@@ -31,6 +31,12 @@ csv = "1.4.0"
 # default-features off: no TLS stack needed, every request targets
 # http://localhost:11434 only (TRD trust boundary).
 reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
+# tauri-plugin-updater pulls reqwest's rustls TLS backend in via Cargo
+# feature unification (it needs HTTPS for GitHub Releases); rustls 0.23+
+# requires a crypto provider to be installed explicitly before any
+# reqwest::Client is built, even ours, which only ever talks plain HTTP to
+# localhost. Installed once at startup in lib.rs.
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dev-dependencies]
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }

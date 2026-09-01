@@ -37,11 +37,16 @@
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 161 94% 30%;
-    --success-foreground: 0 0% 100%;
+    /* L27 is the narrow band where this reads as legible text on the page
+       background AND lets pure-black -foreground clear 4.5:1 on a filled
+       badge (needs true 0% lightness — even 9% drops below threshold). */
+    --success: 161 94% 27%;
+    --success-foreground: 0 0% 0%;
 
-    --border: 240 10% 88%;
-    --input: 240 10% 88%;
+    /* Boosted from L88 (1.35:1 — invisible) to clear WCAG's 3:1 non-text
+       contrast minimum for UI component boundaries (cards, inputs). */
+    --border: 240 10% 59%;
+    --input: 240 10% 59%;
     --ring: 262 83% 58%;
 
     --radius: 0.625rem;
@@ -70,14 +75,21 @@
     --accent: 229 15% 18%;
     --accent-foreground: 228 16% 94%;
 
-    --destructive: 0 72% 51%;
+    /* Lightened from the light theme's 51% — at 51% this fails WCAG AA
+       (4.0:1) as plain error/warning text on the dark canvas. 60% clears
+       4.5:1 for text while the filled button/badge use (which renders at
+       dark:bg-destructive/60, blended over the card surface) stays well
+       above 4.5:1 too. See contrast audit note above. */
+    --destructive: 0 72% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --success: 161 84% 39%;
-    --success-foreground: 0 0% 100%;
+    --success-foreground: 0 0% 0%;
 
-    --border: 229 15% 20%;
-    --input: 229 15% 20%;
+    /* Boosted from L20 (1.42:1 — invisible) to clear WCAG's 3:1 non-text
+       contrast minimum for UI component boundaries (cards, inputs). */
+    --border: 229 15% 45%;
+    --input: 229 15% 45%;
     --ring: 262 83% 58%;
   }
 

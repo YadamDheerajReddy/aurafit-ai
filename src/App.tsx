@@ -42,11 +42,15 @@ function App() {
   return (
     <div className="flex min-h-screen bg-background">
       <NavRail active={nav} onSelect={setNav} />
-      {nav === "dashboard" && <Dashboard userState={userState} onDataChanged={refresh} />}
-      {nav === "log-meal" && <LogMealPage onLogged={() => setNav("dashboard")} />}
-      {nav === "recipes" && <RecipesPage />}
-      {nav === "progress" && <ProgressPage targetWeightKg={userState.active_goal?.target_weight_kg ?? null} />}
-      {nav === "settings" && <SettingsPage userState={userState} onDataChanged={refresh} />}
+      <div key={nav} className="flex min-w-0 flex-1 animate-in fade-in duration-200 ease-out">
+        {nav === "dashboard" && <Dashboard userState={userState} onDataChanged={refresh} />}
+        {nav === "log-meal" && <LogMealPage onLogged={() => setNav("dashboard")} />}
+        {nav === "recipes" && <RecipesPage />}
+        {nav === "progress" && (
+          <ProgressPage targetWeightKg={userState.active_goal?.target_weight_kg ?? null} />
+        )}
+        {nav === "settings" && <SettingsPage userState={userState} onDataChanged={refresh} />}
+      </div>
     </div>
   );
 }

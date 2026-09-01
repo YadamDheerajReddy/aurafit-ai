@@ -200,13 +200,12 @@ export function exportData(destDir: string): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Vision AI (Ollama)
+// AI meal estimation (Ollama)
 // ---------------------------------------------------------------------------
 
 export interface OllamaStatusResult {
   running: boolean;
   models_installed: string[];
-  vision_model_ready: boolean;
   text_model_ready: boolean;
 }
 
@@ -235,12 +234,7 @@ export interface MealAnalysisResult {
   error: string | null;
 }
 
-/** `imageDataUrl` is a `data:image/...;base64,...` string. */
-export function analyzeMealPhoto(imageDataUrl: string): Promise<MealAnalysisResult> {
-  return invoke("analyze_meal_photo", { imageDataUrl });
-}
-
-/** Text-only fallback: describe what you ate, a local text LLM estimates the macros. */
+/** Describe what you ate; a local text LLM estimates the macros. */
 export function estimateMealFromText(description: string): Promise<MealAnalysisResult> {
   return invoke("estimate_meal_from_text", { description });
 }

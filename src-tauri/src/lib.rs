@@ -45,9 +45,8 @@ pub fn run() {
             commands::logging::get_weight_history,
             commands::analytics::get_progress_charts,
             commands::export::export_data,
-            commands::vision::check_ollama_status,
-            commands::vision::analyze_meal_photo,
-            commands::vision::estimate_meal_from_text,
+            commands::meal_estimate::check_ollama_status,
+            commands::meal_estimate::estimate_meal_from_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

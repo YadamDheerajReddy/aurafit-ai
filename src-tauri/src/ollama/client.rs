@@ -10,20 +10,10 @@ const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// CPU-only / RAM-constrained inference can legitimately take minutes, not
 /// seconds — this bounds it so a genuinely stuck request still surfaces a
-/// clear error instead of an indefinite spinner (TRD's <30s target assumes
-/// comfortable headroom, which not every machine has).
+/// clear error instead of an indefinite spinner.
 const CHAT_TIMEOUT: Duration = Duration::from_secs(180);
 
-// TRD 4.1 names llama3.2-vision:11b, but that needs ~8GB+ VRAM/RAM headroom
-// this dev machine doesn't have. qwen2.5vl:7b (~6GB) is a deliberate
-// lighter-hardware substitution — same request/response contract, same
-// JSON-mode structured output, just a smaller backing model.
-pub const VISION_MODEL: &str = "qwen2.5vl:7b";
-
-/// Text-only fallback for hardware where the vision path is unreliable
-/// (e.g. a GPU/CUDA driver incompatibility): the user types what they ate
-/// instead of photographing it, and this model estimates the macros. Reuses
-/// the exact same MealAnalysis JSON contract as the vision path.
+/// The user types what they ate; this model estimates the macros.
 pub const TEXT_MODEL: &str = "qwen2.5:3b-instruct";
 
 pub struct OllamaStatus {
@@ -81,38 +71,9 @@ impl OllamaClient {
         }
     }
 
-    /// POST /api/chat with a base64 JPEG and a structured-output prompt
-    /// (TRD, 4.1 — Request Contract). `retry_context`, when set, appends the
-    /// prior validation error so the model can self-correct.
-    pub async fn analyze_meal_photo(
-        &self,
-        image_base64: &str,
-        retry_context: Option<String>,
-    ) -> Result<String, String> {
-        let prompt = with_retry_context(
-            "Identify each food item on this plate. For each item, estimate its weight in \
-             grams and its calories, protein, carbs, and fat. Respond only in the given JSON \
-             schema.",
-            retry_context.as_deref(),
-        );
-
-        let body = json!({
-            "model": VISION_MODEL,
-            "messages": [{
-                "role": "user",
-                "content": prompt,
-                "images": [image_base64],
-            }],
-            "format": "json",
-            "stream": false,
-        });
-
-        self.chat(body).await
-    }
-
-    /// POST /api/chat with a typed meal description, no image — the
-    /// text-only fallback path. Same JSON contract as the vision path so
-    /// the frontend's Verification Table and Zod schema are reused as-is.
+    /// POST /api/chat with a typed meal description and a structured-output
+    /// prompt. `retry_context`, when set, appends the prior validation error
+    /// so the model can self-correct.
     pub async fn estimate_meal_from_text(
         &self,
         description: &str,

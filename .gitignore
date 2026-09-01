@@ -25,9 +25,3 @@ dist-ssr
 
 # Local tooling state (not project source)
 .claude/
-
-# Golden-set photos are personal meal photos — keep labels/results in git,
-# not the images themselves (data/golden_set/README.md).
-data/golden_set/photos/*
-!data/golden_set/photos/.gitkeep
-data/golden_set/report.csv

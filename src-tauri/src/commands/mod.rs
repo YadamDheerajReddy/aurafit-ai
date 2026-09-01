@@ -3,4 +3,4 @@ pub mod biometrics;
 pub mod export;
 pub mod logging;
 pub mod lookup;
-pub mod vision;
+pub mod meal_estimate;

@@ -2,24 +2,18 @@ use serde::Serialize;
 use std::future::Future;
 
 use crate::ollama::client::OllamaClient;
-use crate::ollama::image::prepare_image;
 use crate::ollama::schemas::MealAnalysis;
 
 #[derive(Debug, Serialize)]
 pub struct OllamaStatusResult {
     pub running: bool,
     pub models_installed: Vec<String>,
-    pub vision_model_ready: bool,
     pub text_model_ready: bool,
 }
 
 #[tauri::command]
 pub async fn check_ollama_status() -> OllamaStatusResult {
     let status = OllamaClient::new().check_status().await;
-    let vision_model_ready = status
-        .models_installed
-        .iter()
-        .any(|m| m.starts_with("qwen2.5vl"));
     let text_model_ready = status
         .models_installed
         .iter()
@@ -28,7 +22,6 @@ pub async fn check_ollama_status() -> OllamaStatusResult {
     OllamaStatusResult {
         running: status.running,
         models_installed: status.models_installed,
-        vision_model_ready,
         text_model_ready,
     }
 }
@@ -37,7 +30,8 @@ pub async fn check_ollama_status() -> OllamaStatusResult {
 pub struct MealAnalysisResult {
     pub analysis: Option<MealAnalysis>,
     /// Set once the model has failed schema validation twice — the frontend
-    /// falls back to the manual/Quick-Lookup entry form (PRD VIS-04).
+    /// falls back to manual entry (PRD VIS-04, applied to the text-estimate
+    /// path).
     pub needs_manual_entry: bool,
     pub error: Option<String>,
 }
@@ -46,10 +40,9 @@ fn parse_and_validate(raw: &str) -> Result<MealAnalysis, String> {
     serde_json::from_str::<MealAnalysis>(raw).map_err(|e| e.to_string())
 }
 
-/// Shared re-prompt-on-failure orchestration (TRD 4.1, step 4 — Validate):
-/// one automatic retry carrying the validation error as context, then a
-/// manual-entry fallback. `call` is the model invocation itself — the only
-/// thing that differs between the vision and text-description paths.
+/// Re-prompt-on-failure orchestration (TRD 4.1, step 4 — Validate): one
+/// automatic retry carrying the validation error as context, then a
+/// manual-entry fallback.
 async fn run_with_retry<F, Fut>(call: F) -> Result<MealAnalysisResult, String>
 where
     F: Fn(Option<String>) -> Fut,
@@ -88,18 +81,8 @@ where
     }
 }
 
-/// Runs the full vision pipeline (TRD 4.1: Encode -> Infer -> Validate).
-#[tauri::command]
-pub async fn analyze_meal_photo(image_data_url: String) -> Result<MealAnalysisResult, String> {
-    let image_base64 = prepare_image(&image_data_url)?;
-    let client = OllamaClient::new();
-    run_with_retry(|ctx| client.analyze_meal_photo(&image_base64, ctx)).await
-}
-
-/// Text-only fallback: the user types what they ate instead of photographing
-/// it, and a local text LLM estimates the macros. Added for hardware where
-/// the vision path is unreliable (e.g. a GPU/CUDA driver incompatibility) —
-/// same validation/retry/fallback contract as the vision path.
+/// The user types what they ate instead of photographing it, and a local
+/// text LLM estimates the macros.
 #[tauri::command]
 pub async fn estimate_meal_from_text(description: String) -> Result<MealAnalysisResult, String> {
     let trimmed = description.trim();
@@ -115,10 +98,9 @@ pub async fn estimate_meal_from_text(description: String) -> Result<MealAnalysis
 mod tests {
     use super::*;
 
-    /// Implementation Plan Phase 3 exit criterion: "zero unhandled
-    /// schema-validation crashes across 200 test runs." Ollama is a local
-    /// LLM — its JSON-mode output can still be truncated, malformed, or
-    /// structurally wrong, and this must never panic, only return Err.
+    /// Zero unhandled schema-validation crashes: Ollama is a local LLM — its
+    /// JSON-mode output can still be truncated, malformed, or structurally
+    /// wrong, and this must never panic, only return Err.
     #[test]
     fn malformed_model_output_never_panics() {
         let malformed_inputs = [

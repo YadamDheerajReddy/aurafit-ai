@@ -18,14 +18,16 @@ pub struct FoodLogItemInput {
 
 #[derive(Debug, Deserialize)]
 pub struct SaveFoodLogInput {
-    /// One of 'vision_ai' | 'quick_lookup' | 'manual' | 'recipe' (food_log.source CHECK).
+    /// One of 'vision_ai' | 'quick_lookup' | 'manual' | 'recipe' | 'ai_text'
+    /// (food_log.source CHECK). 'vision_ai' remains a valid historical value
+    /// even though the vision logging feature itself was removed.
     pub source: String,
     pub items: Vec<FoodLogItemInput>,
 }
 
 /// Commits one or more items as a single meal entry. Quick Lookup always
 /// sends exactly one item; the schema supports multi-item plates for the
-/// vision logger (Phase 3) and recipes (Phase 4) without changes here.
+/// Describe (text-estimate) and recipe (Phase 4) paths without changes here.
 #[tauri::command]
 pub async fn save_food_log(
     pool: State<'_, SqlitePool>,

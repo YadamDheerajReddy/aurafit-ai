@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { GOALS } from "@/features/onboarding/constants";
 import { calculateTargets, type GoalType, type TargetResult } from "@/lib/api";
@@ -13,15 +15,47 @@ const SHORT_LABEL: Record<GoalType, string> = {
   maintenance: "Maintain",
 };
 
+const TARGET_WEIGHT_CONFIG: Record<
+  GoalType,
+  { required: boolean; label: string; helper: string } | null
+> = {
+  aggressive_fat_loss: {
+    required: true,
+    label: "Target weight (kg)",
+    helper: "What weight are you aiming for? We'll use this to project a goal date on Progress.",
+  },
+  lean_bulk: {
+    required: true,
+    label: "Target weight (kg)",
+    helper: "What weight are you aiming for? We'll use this to project a goal date on Progress.",
+  },
+  recomposition: {
+    required: false,
+    label: "Target weight (kg) — optional",
+    helper: "Recomposition is mostly about body composition, not the scale — set this only if you have a number in mind.",
+  },
+  maintenance: null,
+};
+
 interface GoalStepProps {
   biometrics: BiometricsValue;
   goalType: GoalType | null;
+  targetWeightKg: string;
+  onTargetWeightChange: (value: string) => void;
   onSelect: (goal: GoalType, result: TargetResult) => void;
   onNext: () => void;
   onBack: () => void;
 }
 
-export function GoalStep({ biometrics, goalType, onSelect, onNext, onBack }: GoalStepProps) {
+export function GoalStep({
+  biometrics,
+  goalType,
+  targetWeightKg,
+  onTargetWeightChange,
+  onSelect,
+  onNext,
+  onBack,
+}: GoalStepProps) {
   const [results, setResults] = useState<Partial<Record<GoalType, TargetResult>>>({});
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +88,8 @@ export function GoalStep({ biometrics, goalType, onSelect, onNext, onBack }: Goa
 
   const selectedGoal = GOALS.find((g) => g.value === goalType);
   const selectedResult = goalType ? results[goalType] : undefined;
+  const weightConfig = goalType ? TARGET_WEIGHT_CONFIG[goalType] : null;
+  const canContinue = !!goalType && (!weightConfig?.required || !!targetWeightKg);
 
   return (
     <div className="flex flex-col gap-6">
@@ -115,11 +151,27 @@ export function GoalStep({ biometrics, goalType, onSelect, onNext, onBack }: Goa
         </CardContent>
       </Card>
 
+      {weightConfig && (
+        <div className="grid gap-2">
+          <Label htmlFor="target-weight">{weightConfig.label}</Label>
+          <Input
+            id="target-weight"
+            type="number"
+            inputMode="decimal"
+            placeholder="e.g. 75"
+            value={targetWeightKg}
+            onChange={(e) => onTargetWeightChange(e.target.value)}
+            className="font-mono"
+          />
+          <p className="text-xs text-muted-foreground">{weightConfig.helper}</p>
+        </div>
+      )}
+
       <div className="flex gap-3">
         <Button variant="outline" onClick={onBack} className="flex-1">
           Back
         </Button>
-        <Button onClick={onNext} disabled={!goalType} className="flex-1">
+        <Button onClick={onNext} disabled={!canContinue} className="flex-1">
           Continue
         </Button>
       </div>

@@ -21,6 +21,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   });
   const [goalType, setGoalType] = useState<GoalType | null>(null);
   const [targetResult, setTargetResult] = useState<TargetResult | null>(null);
+  const [targetWeightKg, setTargetWeightKg] = useState("");
   const [diets, setDiets] = useState<string[]>([]);
   const [allergies, setAllergies] = useState<string[]>([]);
 
@@ -51,6 +52,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
           <GoalStep
             biometrics={biometrics}
             goalType={goalType}
+            targetWeightKg={targetWeightKg}
+            onTargetWeightChange={setTargetWeightKg}
             onSelect={(goal, result) => {
               setGoalType(goal);
               setTargetResult(result);
@@ -80,6 +83,7 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             targetResult={targetResult}
             diets={diets}
             allergies={allergies}
+            targetWeightKg={goalType !== "maintenance" && targetWeightKg ? Number(targetWeightKg) : null}
             onBack={() => goTo("guardrails")}
             onComplete={onComplete}
           />

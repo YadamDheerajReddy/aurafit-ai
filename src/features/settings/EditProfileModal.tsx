@@ -38,6 +38,9 @@ export function EditProfileModal({
     userState.active_goal?.goal_type ?? null
   );
   const [targetResult, setTargetResult] = useState<TargetResult | null>(null);
+  const [targetWeightKg, setTargetWeightKg] = useState(
+    userState.active_goal?.target_weight_kg ? String(userState.active_goal.target_weight_kg) : ""
+  );
   const [diets, setDiets] = useState<string[]>(
     userState.guardrails.filter((g) => g.constraint_type === "diet").map((g) => g.value)
   );
@@ -81,6 +84,8 @@ export function EditProfileModal({
           <GoalStep
             biometrics={biometrics}
             goalType={goalType}
+            targetWeightKg={targetWeightKg}
+            onTargetWeightChange={setTargetWeightKg}
             onSelect={(goal, result) => {
               setGoalType(goal);
               setTargetResult(result);
@@ -110,7 +115,7 @@ export function EditProfileModal({
             targetResult={targetResult}
             diets={diets}
             allergies={allergies}
-            initialTargetWeightKg={userState.active_goal?.target_weight_kg}
+            targetWeightKg={goalType !== "maintenance" && targetWeightKg ? Number(targetWeightKg) : null}
             onBack={() => setStep("guardrails")}
             onComplete={onSaved}
           />

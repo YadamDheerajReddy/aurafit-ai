@@ -1,0 +1,131 @@
+fdc_id,description,category,calories_per_100g,protein_g_per_100g,carbs_g_per_100g,fat_g_per_100g,fiber_g_per_100g
+100001,"Chicken breast, skinless, boneless, raw",Poultry,120,22.5,0,2.6,0
+100002,"Chicken thigh, skinless, boneless, raw",Poultry,143,17.9,0,7.8,0
+100003,"Turkey breast, skinless, raw",Poultry,104,23.7,0,0.7,0
+100004,"Ground beef, 90% lean, raw",Beef,176,20,0,10,0
+100005,"Ground beef, 80% lean, raw",Beef,254,17.2,0,20,0
+100006,"Beef sirloin steak, lean, raw",Beef,142,21,0,5.6,0
+100007,"Pork tenderloin, raw",Pork,120,21.5,0,3.5,0
+100008,"Bacon, cooked",Pork,541,37,1.4,42,0
+100009,"Salmon, Atlantic, raw",Fish,208,20.4,0,13.4,0
+100010,"Tuna, yellowfin, raw",Fish,109,24.4,0,0.5,0
+100011,"Tilapia, raw",Fish,96,20.1,0,1.7,0
+100012,"Shrimp, raw",Shellfish,99,24,0.2,0.3,0
+100013,"Cod, raw",Fish,82,17.8,0,0.7,0
+100014,"Egg, whole, raw",Eggs,143,12.6,0.7,9.5,0
+100015,"Egg white, raw",Eggs,52,10.9,0.7,0.2,0
+100016,"Egg yolk, raw",Eggs,322,15.9,3.6,26.5,0
+100017,"Tofu, firm, raw",Legumes,144,15.8,2.8,8.7,2.3
+100018,"Tempeh, raw",Legumes,193,20.3,7.6,10.8,4.4
+100019,"Lentils, cooked",Legumes,116,9,20.1,0.4,7.9
+100020,"Black beans, cooked",Legumes,132,8.9,23.7,0.5,8.7
+100021,"Chickpeas, cooked",Legumes,164,8.9,27.4,2.6,7.6
+100022,"Kidney beans, cooked",Legumes,127,8.7,22.8,0.5,6.4
+100023,"Edamame, cooked",Legumes,121,11.9,8.9,5.2,5.2
+100024,"White rice, cooked",Grains,130,2.7,28.2,0.3,0.4
+100025,"Brown rice, cooked",Grains,123,2.7,25.6,1,1.6
+100026,"Basmati rice, cooked",Grains,121,3.5,25,0.4,0.6
+100027,"Quinoa, cooked",Grains,120,4.4,21.3,1.9,2.8
+100028,"Oats, rolled, dry",Grains,389,16.9,66.3,6.9,10.6
+100029,"Whole wheat bread",Grains,247,13,41,3.4,7
+100030,"White bread",Grains,265,9,49,3.2,2.7
+100031,"Sourdough bread",Grains,289,11.7,55.3,1.9,2.4
+100032,"Pasta, cooked",Grains,131,5.1,25.1,1.1,1.3
+100033,"Whole wheat pasta, cooked",Grains,124,5.3,26.5,1.1,3.9
+100034,"Couscous, cooked",Grains,112,3.8,23.2,0.2,1.4
+100035,"Barley, cooked",Grains,123,2.3,28.2,0.4,3.8
+100036,"Corn tortilla",Grains,218,5.7,44.6,2.9,6.3
+100037,"Flour tortilla",Grains,312,8.2,50.2,7.6,3
+100038,"Bagel, plain",Grains,257,10.1,50.1,1.7,2.1
+100039,"Sweet potato, baked",Vegetables,90,2,20.7,0.2,3.3
+100040,"White potato, baked",Vegetables,93,2.5,21.1,0.1,2.2
+100041,"Broccoli, raw",Vegetables,34,2.8,6.6,0.4,2.6
+100042,"Spinach, raw",Vegetables,23,2.9,3.6,0.4,2.2
+100043,"Kale, raw",Vegetables,49,4.3,8.8,0.9,3.6
+100044,"Carrot, raw",Vegetables,41,0.9,9.6,0.2,2.8
+100045,"Bell pepper, raw",Vegetables,31,1,6,0.3,2.1
+100046,"Tomato, raw",Vegetables,18,0.9,3.9,0.2,1.2
+100047,"Cucumber, raw",Vegetables,15,0.7,3.6,0.1,0.5
+100048,"Zucchini, raw",Vegetables,17,1.2,3.1,0.3,1
+100049,"Cauliflower, raw",Vegetables,25,1.9,5,0.3,2
+100050,"Green beans, raw",Vegetables,31,1.8,7,0.1,3.4
+100051,"Asparagus, raw",Vegetables,20,2.2,3.9,0.1,2.1
+100052,"Mushroom, white, raw",Vegetables,22,3.1,3.3,0.3,1
+100053,"Onion, raw",Vegetables,40,1.1,9.3,0.1,1.7
+100054,"Garlic, raw",Vegetables,149,6.4,33.1,0.5,2.1
+100055,"Lettuce, romaine",Vegetables,17,1.2,3.3,0.3,2.1
+100056,"Avocado, raw",Fruits,160,2,8.5,14.7,6.7
+100057,"Banana, raw",Fruits,89,1.1,22.8,0.3,2.6
+100058,"Apple, raw, with skin",Fruits,52,0.3,13.8,0.2,2.4
+100059,"Orange, raw",Fruits,47,0.9,11.8,0.1,2.4
+100060,"Strawberries, raw",Fruits,32,0.7,7.7,0.3,2
+100061,"Blueberries, raw",Fruits,57,0.7,14.5,0.3,2.4
+100062,"Grapes, raw",Fruits,69,0.7,18.1,0.2,0.9
+100063,"Mango, raw",Fruits,60,0.8,15,0.4,1.6
+100064,"Pineapple, raw",Fruits,50,0.5,13.1,0.1,1.4
+100065,"Watermelon, raw",Fruits,30,0.6,7.6,0.2,0.4
+100066,"Peach, raw",Fruits,39,0.9,9.5,0.3,1.5
+100067,"Pear, raw",Fruits,57,0.4,15.2,0.1,3.1
+100068,"Kiwi, raw",Fruits,61,1.1,14.7,0.5,3
+100069,"Raspberries, raw",Fruits,52,1.2,11.9,0.7,6.5
+100070,"Dates, dried",Fruits,282,2.5,75,0.4,6.7
+100071,"Milk, whole",Dairy,61,3.2,4.8,3.3,0
+100072,"Milk, skim",Dairy,34,3.4,5,0.1,0
+100073,"Greek yogurt, plain, nonfat",Dairy,59,10.2,3.6,0.4,0
+100074,"Greek yogurt, plain, whole milk",Dairy,97,9,4,5,0
+100075,"Cottage cheese, low fat",Dairy,72,12.4,4.3,1,0
+100076,"Cheddar cheese",Dairy,403,23,1.3,33.1,0
+100077,"Mozzarella cheese, part skim",Dairy,254,24.3,2.8,15.9,0
+100078,"Parmesan cheese",Dairy,431,38.5,4.1,29,0
+100079,"Cream cheese",Dairy,342,6.2,4.1,34.2,0
+100080,"Butter, salted",Fats,717,0.9,0.1,81.1,0
+100081,"Olive oil, extra virgin",Fats,884,0,0,100,0
+100082,"Coconut oil",Fats,862,0,0,100,0
+100083,"Avocado oil",Fats,884,0,0,100,0
+100084,"Peanut butter, natural",Fats,588,25.1,20,50.4,6
+100085,"Almond butter",Fats,614,21,18.8,55.5,10.3
+100086,"Almonds, raw",Nuts,579,21.2,21.6,49.9,12.5
+100087,"Walnuts, raw",Nuts,654,15.2,13.7,65.2,6.7
+100088,"Cashews, raw",Nuts,553,18.2,30.2,43.9,3.3
+100089,"Peanuts, raw",Nuts,567,25.8,16.1,49.2,8.5
+100090,"Pistachios, raw",Nuts,560,20.2,27.2,45.3,10.6
+100091,"Chia seeds, dry",Seeds,486,16.5,42.1,30.7,34.4
+100092,"Flaxseed, ground",Seeds,534,18.3,28.9,42.2,27.3
+100093,"Pumpkin seeds, raw",Seeds,559,30.2,10.7,49,6
+100094,"Whey protein powder, generic",Supplements,375,80,7.5,3.5,0
+100095,"Plant protein powder, pea-based",Supplements,380,75,8,4,3
+100096,"Honey",Sweeteners,304,0.3,82.4,0,0.2
+100097,"Maple syrup",Sweeteners,260,0,67,0.2,0
+100098,"White sugar",Sweeteners,387,0,100,0,0
+100099,"Dark chocolate, 70-85% cacao",Snacks,598,7.8,45.9,42.6,10.9
+100100,"Popcorn, air-popped",Snacks,387,12.9,77.8,4.5,14.5
+100101,"Hummus",Prepared,166,7.9,14.3,9.6,6
+100102,"Guacamole",Prepared,157,2,8.5,14.7,6.7
+100103,"Salsa, tomato-based",Condiments,36,1.6,7.6,0.2,1.8
+100104,"Mayonnaise",Condiments,680,1,0.6,75,0
+100105,"Ketchup",Condiments,101,1.2,25.8,0.2,0.3
+100106,"Mustard, yellow",Condiments,66,4.4,6,3.3,3.3
+100107,"Soy sauce",Condiments,53,8.1,4.9,0.6,0.8
+100108,"Balsamic vinegar",Condiments,88,0.5,17,0,0
+100109,"Ranch dressing",Condiments,437,1,6.5,45,0.3
+100110,"Coffee, black, brewed",Beverages,1,0.1,0,0,0
+100111,"Almond milk, unsweetened",Beverages,15,0.6,0.6,1.2,0.3
+100112,"Oat milk, unsweetened",Beverages,45,1,7.4,1.5,0.8
+100113,"Orange juice",Beverages,45,0.7,10.4,0.2,0.2
+100114,"Protein shake, ready-to-drink",Beverages,63,10,4,1,0.5
+100115,"Salmon fillet, grilled",Fish,206,22,0,12.4,0
+100116,"Steak, ribeye, grilled",Beef,271,25,0,18.5,0
+100117,"Chicken drumstick, roasted",Poultry,172,24.6,0,7.8,0
+100118,"French fries, baked",Prepared,274,3.4,41.4,10.5,3.8
+100119,"Pizza, cheese, regular crust",Prepared,266,11.4,33,10,2.3
+100120,"Caesar salad, with dressing",Prepared,190,6,8,16,2
+100121,"Oatmeal, cooked with water",Grains,71,2.5,12,1.5,1.7
+100122,"Granola, plain",Grains,471,10,64,20,7
+100123,"Protein bar, generic",Snacks,370,30,35,12,8
+100124,"Rice cakes, plain",Snacks,387,8.2,82,2.8,1.3
+100125,"Trail mix, nuts and dried fruit",Snacks,462,13.8,44.9,29.4,6.5
+100126,"Beef jerky",Snacks,410,33,11.2,25.1,0.6
+100127,"Applesauce, unsweetened",Fruits,42,0.2,11.3,0.1,1.2
+100128,"Coconut, shredded, unsweetened",Fruits,660,6.9,23.7,64.5,16.3
+100129,"Cabbage, raw",Vegetables,25,1.3,5.8,0.1,2.5
+100130,"Brussels sprouts, raw",Vegetables,43,3.4,8.9,0.3,3.8

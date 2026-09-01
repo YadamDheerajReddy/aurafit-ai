@@ -30,7 +30,7 @@ on calories, re-checked whenever the prompt or model changes.
 
 ## Running it
 
-Requires Ollama running locally with `llama3.2-vision:11b` pulled (Settings →
+Requires Ollama running locally with `qwen2.5vl:7b` pulled (Settings →
 AI Models in the app will tell you if it's ready).
 
 ```bash

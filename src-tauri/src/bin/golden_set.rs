@@ -3,7 +3,7 @@
 //! calorie error <= 15%").
 //!
 //! Run with: `cargo run --bin golden_set` (from src-tauri/), with Ollama
-//! running and llama3.2-vision:11b pulled. See data/golden_set/README.md for
+//! running and qwen2.5vl:7b pulled. See data/golden_set/README.md for
 //! how to add labeled photos.
 
 use aurafit_lib::ollama::client::OllamaClient;

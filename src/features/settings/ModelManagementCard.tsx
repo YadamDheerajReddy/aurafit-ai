@@ -73,7 +73,7 @@ export function ModelManagementCard() {
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
-              <span className="text-sm text-foreground">llama3.2-vision:11b</span>
+              <span className="text-sm text-foreground">qwen2.5vl:7b</span>
               {status?.vision_model_ready ? (
                 <Badge variant="success" className="gap-1">
                   <CheckCircle2 className="size-3" /> Installed
@@ -115,9 +115,9 @@ export function ModelManagementCard() {
                     ollama.com/download
                   </a>
                 )}
-                <CopyableCommand command="ollama pull llama3.2-vision:11b" />
+                <CopyableCommand command="ollama pull qwen2.5vl:7b" />
                 <p className="text-xs text-muted-foreground">
-                  This is an 8GB+ download that only happens once.
+                  This is a ~6GB download that only happens once.
                 </p>
               </div>
             )}

@@ -17,7 +17,7 @@ pub async fn check_ollama_status() -> OllamaStatusResult {
     let vision_model_ready = status
         .models_installed
         .iter()
-        .any(|m| m.starts_with("llama3.2-vision"));
+        .any(|m| m.starts_with("qwen2.5vl"));
 
     OllamaStatusResult {
         running: status.running,

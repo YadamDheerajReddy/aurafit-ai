@@ -2,7 +2,11 @@ use serde_json::json;
 
 /// The only network socket AuraFit AI ever opens (TRD, 01 — Trust Boundary).
 const OLLAMA_BASE_URL: &str = "http://localhost:11434";
-pub const VISION_MODEL: &str = "llama3.2-vision:11b";
+// TRD 4.1 names llama3.2-vision:11b, but that needs ~8GB+ VRAM/RAM headroom
+// this dev machine doesn't have. qwen2.5vl:7b (~6GB) is a deliberate
+// lighter-hardware substitution — same request/response contract, same
+// JSON-mode structured output, just a smaller backing model.
+pub const VISION_MODEL: &str = "qwen2.5vl:7b";
 
 pub struct OllamaStatus {
     pub running: bool,

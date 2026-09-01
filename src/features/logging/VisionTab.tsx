@@ -111,7 +111,7 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
           </p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             {ollamaStatus.running
-              ? "Run ollama pull llama3.2-vision:11b, then retry."
+              ? "Run ollama pull qwen2.5vl:7b, then retry."
               : "Start the Ollama app, then retry. Quick Lookup still works normally."}
           </p>
         </div>

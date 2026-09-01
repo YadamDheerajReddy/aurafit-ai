@@ -26,3 +26,27 @@ pub struct MealAnalysis {
     pub items: Vec<FoodItem>,
     pub total_calories: f32,
 }
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RecipeIngredient {
+    pub name: String,
+    pub quantity: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GeneratedRecipe {
+    pub title: String,
+    pub prep_time_minutes: i32,
+    pub servings: i32,
+    pub calories_per_serving: f32,
+    pub protein_g_per_serving: f32,
+    pub carbs_g_per_serving: f32,
+    pub fat_g_per_serving: f32,
+    pub ingredients: Vec<RecipeIngredient>,
+    pub instructions: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RecipeCandidates {
+    pub recipes: Vec<GeneratedRecipe>,
+}

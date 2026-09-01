@@ -238,3 +238,71 @@ export interface MealAnalysisResult {
 export function estimateMealFromText(description: string): Promise<MealAnalysisResult> {
   return invoke("estimate_meal_from_text", { description });
 }
+
+// ---------------------------------------------------------------------------
+// Recipes
+// ---------------------------------------------------------------------------
+
+export interface RecipeIngredient {
+  name: string;
+  quantity: string;
+}
+
+export interface GeneratedRecipe {
+  title: string;
+  prep_time_minutes: number;
+  servings: number;
+  calories_per_serving: number;
+  protein_g_per_serving: number;
+  carbs_g_per_serving: number;
+  fat_g_per_serving: number;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
+}
+
+export interface RecipeCandidate extends GeneratedRecipe {
+  possible_allergens: string[];
+}
+
+export interface RecipeGenerationResult {
+  recipes: RecipeCandidate[];
+  remaining_calories: number | null;
+  remaining_protein_g: number | null;
+}
+
+export function generateRecipes(
+  pantryItems: string[],
+  targetPrepMinutes?: number
+): Promise<RecipeGenerationResult> {
+  return invoke("generate_recipes", {
+    input: { pantry_items: pantryItems, target_prep_minutes: targetPrepMinutes ?? null },
+  });
+}
+
+export function saveRecipe(recipe: GeneratedRecipe): Promise<number> {
+  return invoke("save_recipe", { input: recipe });
+}
+
+export interface SavedRecipe {
+  id: number;
+  title: string;
+  prep_time_minutes: number | null;
+  servings: number;
+  calories_per_serving: number | null;
+  protein_g_per_serving: number | null;
+  carbs_g_per_serving: number | null;
+  fat_g_per_serving: number | null;
+  /** JSON-encoded string array — parse before use. */
+  instructions: string;
+  source: "generated" | "saved" | "manual";
+  created_at: string;
+  ingredients: { id: number; recipe_id: number; name: string; quantity: string }[];
+}
+
+export function getSavedRecipes(): Promise<SavedRecipe[]> {
+  return invoke("get_saved_recipes");
+}
+
+export function deleteRecipe(id: number): Promise<void> {
+  return invoke("delete_recipe", { id });
+}

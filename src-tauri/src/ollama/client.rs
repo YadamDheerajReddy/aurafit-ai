@@ -103,6 +103,29 @@ impl OllamaClient {
         self.chat(body).await
     }
 
+    /// POST /api/chat for pantry recipe generation. The full prompt (pantry
+    /// items, guardrails, remaining macro budget) is built by the caller,
+    /// which owns the DB access this needs — the client stays transport-only.
+    pub async fn generate_recipes(
+        &self,
+        prompt: &str,
+        retry_context: Option<String>,
+    ) -> Result<String, String> {
+        let full_prompt = with_retry_context(prompt, retry_context.as_deref());
+
+        let body = json!({
+            "model": TEXT_MODEL,
+            "messages": [{
+                "role": "user",
+                "content": full_prompt,
+            }],
+            "format": "json",
+            "stream": false,
+        });
+
+        self.chat(body).await
+    }
+
     async fn chat(&self, body: Value) -> Result<String, String> {
         let resp = self
             .http

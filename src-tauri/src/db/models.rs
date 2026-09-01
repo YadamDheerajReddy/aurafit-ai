@@ -79,3 +79,34 @@ pub struct WeightHistoryRow {
     pub logged_at: String,
     pub note: Option<String>,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct RecipeRow {
+    pub id: i64,
+    pub title: String,
+    pub prep_time_minutes: Option<i32>,
+    pub servings: i32,
+    pub calories_per_serving: Option<f64>,
+    pub protein_g_per_serving: Option<f64>,
+    pub carbs_g_per_serving: Option<f64>,
+    pub fat_g_per_serving: Option<f64>,
+    /// JSON array of step strings, as stored — parsed on the frontend.
+    pub instructions: String,
+    pub source: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct RecipeIngredientRow {
+    pub id: i64,
+    pub recipe_id: i64,
+    pub name: String,
+    pub quantity: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedRecipe {
+    #[serde(flatten)]
+    pub recipe: RecipeRow,
+    pub ingredients: Vec<RecipeIngredientRow>,
+}

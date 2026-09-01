@@ -4,6 +4,8 @@ import {
   AlertTriangle,
   Bookmark,
   CalendarDays,
+  ChevronDown,
+  Clock,
   Download,
   Loader2,
   Sparkles,
@@ -15,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { CUISINES } from "@/features/onboarding/constants";
 import { dietPlanPdfBase64 } from "@/lib/dietPlanPdf";
 import {
@@ -25,13 +28,43 @@ import {
   saveDietPlan,
   type DietMealCandidate,
   type DietPlanGenerationResult,
+  type DietPlanMeal,
   type SavedDietPlan,
+  type SavedDietPlanMeal,
   type UserState,
 } from "@/lib/api";
+
+function savedMealToPlain(meal: SavedDietPlanMeal): DietPlanMeal {
+  let ingredients: DietPlanMeal["ingredients"] = [];
+  let instructions: string[] = [];
+  try {
+    ingredients = meal.ingredients ? JSON.parse(meal.ingredients) : [];
+  } catch {
+    ingredients = [];
+  }
+  try {
+    instructions = meal.instructions ? JSON.parse(meal.instructions) : [];
+  } catch {
+    instructions = [];
+  }
+  return {
+    slot: meal.slot,
+    dish_name: meal.dish_name,
+    description: meal.description ?? "",
+    prep_time_minutes: meal.prep_time_minutes ?? 0,
+    calories: meal.calories ?? 0,
+    protein_g: meal.protein_g ?? 0,
+    carbs_g: meal.carbs_g ?? 0,
+    fat_g: meal.fat_g ?? 0,
+    ingredients,
+    instructions,
+  };
+}
 
 export function DietPlanPage({ userState }: { userState: UserState }) {
   const [cuisine, setCuisine] = useState(userState.profile?.cuisine_preference ?? "");
   const [title, setTitle] = useState("Today's Diet Plan");
+  const [targetPrepMinutes, setTargetPrepMinutes] = useState("");
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<DietPlanGenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +87,10 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
     setResult(null);
     setSaved(false);
     try {
-      const r = await generateDietPlan(cuisine || null);
+      const r = await generateDietPlan(
+        cuisine || null,
+        targetPrepMinutes ? Number(targetPrepMinutes) : null
+      );
       setResult(r);
     } catch (e) {
       console.error(e);
@@ -79,10 +115,13 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
           slot: m.slot,
           dish_name: m.dish_name,
           description: m.description,
+          prep_time_minutes: m.prep_time_minutes,
           calories: m.calories,
           protein_g: m.protein_g,
           carbs_g: m.carbs_g,
           fat_g: m.fat_g,
+          ingredients: m.ingredients,
+          instructions: m.instructions,
         })),
       });
       setSaved(true);
@@ -93,7 +132,7 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
   }
 
   async function handleExportPdf(
-    meals: DietMealCandidate[] | SavedDietPlan["meals"],
+    meals: (DietPlanMeal & { possible_conflicts?: string[] })[],
     planTitle: string,
     planCuisine: string | null,
     targetCalories: number | null,
@@ -116,15 +155,7 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
         targetProteinG,
         targetCarbsG,
         targetFatG,
-        meals: meals.map((m) => ({
-          slot: m.slot,
-          dish_name: m.dish_name,
-          description: m.description ?? "",
-          calories: m.calories ?? 0,
-          protein_g: m.protein_g ?? 0,
-          carbs_g: m.carbs_g ?? 0,
-          fat_g: m.fat_g ?? 0,
-        })),
+        meals,
         personName: userState.profile?.name,
       });
       await exportDietPlanPdf(path, base64);
@@ -143,8 +174,8 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">Diet Plan</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          A full day's timetable, generated from your calorie goal and cuisine preference —
-          nothing leaves this device.
+          A full day's timetable with complete recipes, generated from your calorie goal and
+          cuisine preference — nothing leaves this device.
         </p>
       </div>
 
@@ -184,6 +215,19 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
                 </div>
               </div>
 
+              <div className="grid gap-2">
+                <Label htmlFor="prep-time">Prep time per meal (optional)</Label>
+                <Input
+                  id="prep-time"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="e.g. 20 minutes"
+                  value={targetPrepMinutes}
+                  onChange={(e) => setTargetPrepMinutes(e.target.value)}
+                  className="w-48"
+                />
+              </div>
+
               <Button onClick={handleGenerate} disabled={generating} className="w-fit gap-1.5">
                 {generating ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -200,7 +244,7 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
           {generating && (
             <div className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-16 text-center text-sm text-muted-foreground">
               <Loader2 className="size-5 animate-spin" />
-              Building your day's timetable — local AI can take a minute.
+              Building your day's timetable and recipes — local AI can take a few minutes.
             </div>
           )}
 
@@ -268,66 +312,65 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {savedPlans.map((plan) => (
-                <Card key={plan.id}>
-                  <CardContent className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-display text-base font-semibold text-foreground">
-                          {plan.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {plan.cuisine ?? "No cuisine set"} ·{" "}
-                          {new Date(plan.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 gap-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                          disabled={exportingPdf}
-                          onClick={() =>
-                            handleExportPdf(
-                              plan.meals,
-                              plan.title,
-                              plan.cuisine,
-                              plan.target_calories,
-                              plan.target_protein_g,
-                              plan.target_carbs_g,
-                              plan.target_fat_g
-                            )
-                          }
-                        >
-                          <Download className="size-3.5" />
-                          PDF
-                        </Button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSaved(plan.id)}
-                          className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                          aria-label="Delete plan"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      {plan.meals.map((meal) => (
-                        <div
-                          key={meal.id}
-                          className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 text-sm"
-                        >
-                          <span className="text-muted-foreground">{meal.dish_name}</span>
-                          <span className="font-mono text-xs text-foreground">
-                            {Math.round(meal.calories ?? 0)} kcal
-                          </span>
+              {savedPlans.map((plan) => {
+                const meals = plan.meals.map(savedMealToPlain);
+                return (
+                  <Card key={plan.id}>
+                    <CardContent className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-display text-base font-semibold text-foreground">
+                            {plan.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {plan.cuisine ?? "No cuisine set"} ·{" "}
+                            {new Date(plan.created_at).toLocaleDateString()}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                        <div className="flex shrink-0 gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5"
+                            disabled={exportingPdf}
+                            onClick={() =>
+                              handleExportPdf(
+                                meals,
+                                plan.title,
+                                plan.cuisine,
+                                plan.target_calories,
+                                plan.target_protein_g,
+                                plan.target_carbs_g,
+                                plan.target_fat_g
+                              )
+                            }
+                          >
+                            <Download className="size-3.5" />
+                            PDF
+                          </Button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSaved(plan.id)}
+                            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Delete plan"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {meals.map((meal, i) => (
+                          <MealRow
+                            key={i}
+                            meal={{ ...meal, slot_label: SLOT_LABELS[meal.slot], possible_conflicts: [] }}
+                            compact
+                          />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -336,34 +379,95 @@ export function DietPlanPage({ userState }: { userState: UserState }) {
   );
 }
 
-function MealRow({ meal }: { meal: DietMealCandidate }) {
+const SLOT_LABELS: Record<string, string> = {
+  breakfast: "Breakfast",
+  mid_morning: "Mid-Morning Snack",
+  lunch: "Lunch",
+  evening_snack: "Evening Snack",
+  dinner: "Dinner",
+};
+
+function MealRow({ meal, compact }: { meal: DietMealCandidate; compact?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <Card>
-      <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex-1">
-          <Badge variant="outline" className="mb-1.5 text-xs">
-            {meal.slot_label}
-          </Badge>
-          <p className="font-display text-base font-semibold text-foreground">{meal.dish_name}</p>
-          <p className="text-sm text-muted-foreground">{meal.description}</p>
-          {meal.possible_conflicts.length > 0 && (
-            <div className="mt-2 flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
-              <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-              <p className="text-xs text-foreground">
-                May contain: {meal.possible_conflicts.join(", ")} — double-check before eating.
-              </p>
+      <CardContent className={cn("flex flex-col gap-2", compact && "py-3")}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex-1">
+            <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="text-xs">
+                {meal.slot_label}
+              </Badge>
+              {meal.prep_time_minutes > 0 && (
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Clock className="size-3" />
+                  {meal.prep_time_minutes} min
+                </Badge>
+              )}
             </div>
-          )}
+            <p className="font-display text-base font-semibold text-foreground">{meal.dish_name}</p>
+            <p className="text-sm text-muted-foreground">{meal.description}</p>
+            {meal.possible_conflicts.length > 0 && (
+              <div className="mt-2 flex items-start gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-destructive" />
+                <p className="text-xs text-foreground">
+                  May contain: {meal.possible_conflicts.join(", ")} — double-check before eating.
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex shrink-0 gap-3 text-right sm:flex-col sm:gap-1">
+            <span className="font-mono text-sm font-semibold text-foreground">
+              {Math.round(meal.calories)} kcal
+            </span>
+            <span className="font-mono text-xs text-muted-foreground">
+              P {Math.round(meal.protein_g)}g · C {Math.round(meal.carbs_g)}g · F{" "}
+              {Math.round(meal.fat_g)}g
+            </span>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-3 text-right sm:flex-col sm:gap-1">
-          <span className="font-mono text-sm font-semibold text-foreground">
-            {Math.round(meal.calories)} kcal
-          </span>
-          <span className="font-mono text-xs text-muted-foreground">
-            P {Math.round(meal.protein_g)}g · C {Math.round(meal.carbs_g)}g · F{" "}
-            {Math.round(meal.fat_g)}g
-          </span>
-        </div>
+
+        {(meal.ingredients.length > 0 || meal.instructions.length > 0) && (
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+          >
+            <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
+            {expanded ? "Hide recipe" : "View recipe"}
+          </button>
+        )}
+
+        {expanded && (
+          <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                Ingredients
+              </p>
+              <ul className="flex flex-col gap-1 text-sm text-foreground">
+                {meal.ingredients.map((ing, i) => (
+                  <li key={i}>
+                    {ing.name} <span className="text-muted-foreground">— {ing.quantity}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                Instructions
+              </p>
+              <ol className="flex flex-col gap-1.5 text-sm text-foreground">
+                {meal.instructions.map((step, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="font-mono text-xs text-muted-foreground">{i + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

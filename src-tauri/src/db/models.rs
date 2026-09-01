@@ -140,10 +140,15 @@ pub struct DietPlanMealRow {
     pub slot: String,
     pub dish_name: String,
     pub description: Option<String>,
+    pub prep_time_minutes: Option<i32>,
     pub calories: Option<f64>,
     pub protein_g: Option<f64>,
     pub carbs_g: Option<f64>,
     pub fat_g: Option<f64>,
+    /// JSON array of {name, quantity} — parsed on the frontend.
+    pub ingredients: Option<String>,
+    /// JSON array of step strings — parsed on the frontend.
+    pub instructions: Option<String>,
     pub sort_order: i32,
 }
 

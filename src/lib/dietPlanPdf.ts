@@ -1,14 +1,20 @@
 import { jsPDF } from "jspdf";
 import type { DietPlanMeal, MealSlot } from "@/lib/api";
 
-const VIOLET: [number, number, number] = [124, 58, 237];
-const TEAL: [number, number, number] = [13, 148, 136];
-const INK: [number, number, number] = [23, 25, 34];
-const MUTED: [number, number, number] = [110, 116, 128];
-const LINE: [number, number, number] = [225, 227, 232];
-const PROTEIN: [number, number, number] = [59, 130, 246];
-const CARBS: [number, number, number] = [245, 158, 11];
-const FAT: [number, number, number] = [244, 63, 94];
+type RGB = [number, number, number];
+
+const VIOLET: RGB = [124, 58, 237];
+const TEAL: RGB = [13, 148, 136];
+const INK: RGB = [23, 25, 34];
+const MUTED: RGB = [110, 116, 128];
+const LINE: RGB = [225, 227, 232];
+const CARD_BG: RGB = [249, 249, 252];
+const WHITE: RGB = [255, 255, 255];
+const PROTEIN: RGB = [59, 130, 246];
+const CARBS: RGB = [245, 158, 11];
+const FAT: RGB = [244, 63, 94];
+const DESTRUCTIVE: RGB = [220, 38, 38];
+const DESTRUCTIVE_BG: RGB = [254, 242, 242];
 
 const SLOT_LABEL: Record<MealSlot, string> = {
   breakfast: "Breakfast",
@@ -18,30 +24,53 @@ const SLOT_LABEL: Record<MealSlot, string> = {
   dinner: "Dinner",
 };
 
-function lerp(a: number, b: number, t: number) {
+const SLOT_ORDER: MealSlot[] = ["breakfast", "mid_morning", "lunch", "evening_snack", "dinner"];
+
+function lerpChannel(a: number, b: number, t: number) {
   return Math.round(a + (b - a) * t);
 }
 
-function drawGradientBanner(
+function lerpColor(from: RGB, to: RGB, t: number): RGB {
+  return [lerpChannel(from[0], to[0], t), lerpChannel(from[1], to[1], t), lerpChannel(from[2], to[2], t)];
+}
+
+/** Draws a smooth horizontal gradient by painting many thin vertical strips. */
+function drawGradientRect(
   doc: jsPDF,
   x: number,
   y: number,
   width: number,
   height: number,
-  from: [number, number, number],
-  to: [number, number, number]
+  from: RGB,
+  to: RGB,
+  vertical = false
 ) {
-  const steps = 120;
-  const stepWidth = width / steps;
+  const steps = Math.max(24, Math.round((vertical ? height : width) * 2));
+  const stepSize = (vertical ? height : width) / steps;
   for (let i = 0; i < steps; i++) {
-    const t = i / (steps - 1);
-    const r = lerp(from[0], to[0], t);
-    const g = lerp(from[1], to[1], t);
-    const b = lerp(from[2], to[2], t);
+    const t = steps === 1 ? 0 : i / (steps - 1);
+    const [r, g, b] = lerpColor(from, to, t);
     doc.setFillColor(r, g, b);
-    doc.rect(x + i * stepWidth, y, stepWidth + 0.5, height, "F");
+    if (vertical) {
+      doc.rect(x, y + i * stepSize, width, stepSize + 0.6, "F");
+    } else {
+      doc.rect(x + i * stepSize, y, stepSize + 0.6, height, "F");
+    }
   }
 }
+
+/** Wraps text once and reuses the same line array for both measuring and drawing, so what's measured is exactly what's drawn. */
+function wrap(doc: jsPDF, text: string, maxWidth: number): string[] {
+  if (!text) return [];
+  return doc.splitTextToSize(text, maxWidth) as string[];
+}
+
+interface Cursor {
+  y: number;
+}
+
+const PAGE_MARGIN = 16;
+const LINE_H = 4.2;
 
 export interface DietPlanPdfInput {
   title: string;
@@ -50,30 +79,44 @@ export interface DietPlanPdfInput {
   targetProteinG: number | null;
   targetCarbsG: number | null;
   targetFatG: number | null;
-  meals: DietPlanMeal[];
+  meals: (DietPlanMeal & { possible_conflicts?: string[] })[];
   personName?: string | null;
 }
 
 export function buildDietPlanPdf(input: DietPlanPdfInput): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 16;
-  const contentWidth = pageWidth - margin * 2;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const contentWidth = pageWidth - PAGE_MARGIN * 2;
 
-  // --- Header banner -------------------------------------------------
-  drawGradientBanner(doc, 0, 0, pageWidth, 38, VIOLET, TEAL);
-  doc.setTextColor(255, 255, 255);
+  function newPage() {
+    doc.addPage();
+    return { y: PAGE_MARGIN };
+  }
+
+  function ensureSpace(cursor: Cursor, needed: number): Cursor {
+    if (cursor.y + needed > pageHeight - 22) {
+      return newPage();
+    }
+    return cursor;
+  }
+
+  // --- Header banner ----------------------------------------------------
+  const bannerHeight = 40;
+  drawGradientRect(doc, 0, 0, pageWidth, bannerHeight, VIOLET, TEAL);
+
+  doc.setTextColor(...WHITE);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  doc.text("AURAFIT AI", margin, 12);
-  doc.setFontSize(20);
-  doc.text(input.title, margin, 24);
+  doc.text("AURAFIT AI", PAGE_MARGIN, 13);
+  doc.setFontSize(21);
+  doc.text(input.title, PAGE_MARGIN, 25);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   const subtitle = [input.cuisine, input.personName ? `for ${input.personName}` : null]
     .filter(Boolean)
     .join(" · ");
-  if (subtitle) doc.text(subtitle, margin, 32);
+  if (subtitle) doc.text(subtitle, PAGE_MARGIN, 33);
 
   const dateStr = new Date().toLocaleDateString(undefined, {
     year: "numeric",
@@ -81,11 +124,18 @@ export function buildDietPlanPdf(input: DietPlanPdfInput): jsPDF {
     day: "numeric",
   });
   doc.setFontSize(9);
-  doc.text(dateStr, pageWidth - margin, 12, { align: "right" });
+  doc.text(dateStr, pageWidth - PAGE_MARGIN, 13, { align: "right" });
 
-  // --- Macro summary strip --------------------------------------------
-  let y = 48;
-  const summaryItems: { label: string; value: string; color: [number, number, number] }[] = [
+  // Thin gradient accent line directly under the banner.
+  drawGradientRect(doc, 0, bannerHeight, pageWidth, 1.6, TEAL, VIOLET);
+
+  // --- Macro summary strip ------------------------------------------------
+  let cursor: Cursor = { y: bannerHeight + 12 };
+  const summaryHeight = 22;
+  doc.setFillColor(...CARD_BG);
+  doc.roundedRect(PAGE_MARGIN, cursor.y - 6, contentWidth, summaryHeight, 3, 3, "F");
+
+  const summaryItems: { label: string; value: string; color: RGB }[] = [
     { label: "CALORIES", value: input.targetCalories ? `${Math.round(input.targetCalories)}` : "—", color: INK },
     { label: "PROTEIN", value: input.targetProteinG ? `${Math.round(input.targetProteinG)}g` : "—", color: PROTEIN },
     { label: "CARBS", value: input.targetCarbsG ? `${Math.round(input.targetCarbsG)}g` : "—", color: CARBS },
@@ -93,103 +143,227 @@ export function buildDietPlanPdf(input: DietPlanPdfInput): jsPDF {
   ];
   const boxWidth = contentWidth / 4;
   summaryItems.forEach((item, i) => {
-    const bx = margin + i * boxWidth;
-    doc.setDrawColor(...LINE);
-    doc.setLineWidth(0.3);
-    if (i > 0) doc.line(bx, y - 4, bx, y + 10);
+    const bx = PAGE_MARGIN + i * boxWidth;
+    if (i > 0) {
+      doc.setDrawColor(...LINE);
+      doc.setLineWidth(0.25);
+      doc.line(bx, cursor.y - 4, bx, cursor.y + 12);
+    }
     doc.setTextColor(...MUTED);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(item.label, bx + boxWidth / 2, y - 1, { align: "center" });
+    doc.setFontSize(7.5);
+    doc.text(item.label, bx + boxWidth / 2, cursor.y - 1, { align: "center" });
     doc.setTextColor(...item.color);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(item.value, bx + boxWidth / 2, y + 8, { align: "center" });
+    doc.setFontSize(15);
+    doc.text(item.value, bx + boxWidth / 2, cursor.y + 9, { align: "center" });
   });
 
-  y += 18;
-  doc.setDrawColor(...LINE);
-  doc.line(margin, y, pageWidth - margin, y);
-  y += 10;
+  cursor.y += summaryHeight + 10;
 
-  // --- Meal timetable ---------------------------------------------------
-  const slotOrder: MealSlot[] = ["breakfast", "mid_morning", "lunch", "evening_snack", "dinner"];
-  const orderedMeals = slotOrder
-    .map((slot) => input.meals.find((m) => m.slot === slot))
-    .filter((m): m is DietPlanMeal => !!m);
+  // --- Meal cards (each a full recipe) ------------------------------------
+  type PdfMeal = DietPlanMeal & { possible_conflicts?: string[] };
+  const orderedMeals = SLOT_ORDER.map((slot) => input.meals.find((m) => m.slot === slot)).filter(
+    (m): m is PdfMeal => !!m
+  );
 
-  const rowHeight = 30;
-  const timeColWidth = 38;
+  const accentWidth = 4;
+  const padX = 6;
+  const padY = 6;
+  const innerX = PAGE_MARGIN + accentWidth + padX;
+  const innerWidth = contentWidth - accentWidth - padX * 2 - 40; // reserve right column for macros
+  const macroColX = PAGE_MARGIN + contentWidth - 34;
 
-  for (const meal of orderedMeals) {
-    if (y + rowHeight > doc.internal.pageSize.getHeight() - 20) {
-      doc.addPage();
-      y = 20;
-    }
+  orderedMeals.forEach((meal, index) => {
+    const t = orderedMeals.length <= 1 ? 0 : index / (orderedMeals.length - 1);
+    const accent = lerpColor(VIOLET, TEAL, t);
 
-    // Row background (alternating)
-    doc.setFillColor(248, 248, 251);
-    doc.roundedRect(margin, y, contentWidth, rowHeight, 2, 2, "F");
-
-    // Time-slot badge
-    doc.setFillColor(...VIOLET);
-    doc.roundedRect(margin + 4, y + 5, timeColWidth - 8, 20, 2, 2, "F");
-    doc.setTextColor(255, 255, 255);
+    // --- Measure content first, so the card background is drawn at the
+    // right height and nothing downstream ever overlaps what came before.
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    const label = SLOT_LABEL[meal.slot];
-    const labelLines = doc.splitTextToSize(label.toUpperCase(), timeColWidth - 12);
-    doc.text(labelLines, margin + timeColWidth / 2, y + 15 - (labelLines.length - 1) * 2, {
-      align: "center",
-    });
+    doc.setFontSize(13);
+    const nameLines = wrap(doc, meal.dish_name, innerWidth);
 
-    // Dish name + description
-    const textX = margin + timeColWidth + 4;
-    const textWidth = contentWidth - timeColWidth - 4 - 46;
-    doc.setTextColor(...INK);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(meal.dish_name, textX, y + 10);
-    doc.setTextColor(...MUTED);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    const descLines = doc.splitTextToSize(meal.description, textWidth);
-    doc.text(descLines.slice(0, 2), textX, y + 16);
+    const descLines = wrap(doc, meal.description, innerWidth);
 
-    // Macro badges
-    const macroX = margin + contentWidth - 44;
+    const conflicts = meal.possible_conflicts ?? [];
+    const conflictLines =
+      conflicts.length > 0
+        ? wrap(doc, `May contain: ${conflicts.join(", ")} — double-check before eating.`, innerWidth)
+        : [];
+
+    doc.setFontSize(8.5);
+    const ingredientLineGroups = meal.ingredients.map((ing) =>
+      wrap(doc, `•  ${ing.name} — ${ing.quantity}`, innerWidth)
+    );
+    const instructionLineGroups = meal.instructions.map((step, i) =>
+      wrap(doc, `${i + 1}. ${step}`, innerWidth)
+    );
+
+    const headerRowH = 7; // slot badge + prep time row
+    const nameH = nameLines.length * (LINE_H + 1.4);
+    const descH = descLines.length * LINE_H;
+    // Must match the conflict-box drawing block's actual y consumption below exactly:
+    // 5mm gap + N lines * LINE_H + 2mm trailing gap.
+    const conflictH = conflictLines.length > 0 ? 7 + conflictLines.length * LINE_H : 0;
+    const ingredientsHeaderH = meal.ingredients.length > 0 ? 5 : 0;
+    const ingredientsH = ingredientLineGroups.reduce((sum, lines) => sum + lines.length * LINE_H, 0);
+    const instructionsHeaderH = meal.instructions.length > 0 ? 5 : 0;
+    const instructionsH = instructionLineGroups.reduce((sum, lines) => sum + lines.length * LINE_H, 0);
+
+    const contentH =
+      headerRowH +
+      nameH +
+      2 +
+      descH +
+      conflictH +
+      3 +
+      ingredientsHeaderH +
+      ingredientsH +
+      4 +
+      instructionsHeaderH +
+      instructionsH;
+    const cardHeight = contentH + padY * 2;
+
+    cursor = ensureSpace(cursor, Math.min(cardHeight, pageHeight - PAGE_MARGIN * 2 - 22));
+
+    const cardTop = cursor.y;
+
+    // Card background + left gradient accent bar.
+    doc.setFillColor(...CARD_BG);
+    doc.roundedRect(PAGE_MARGIN, cardTop, contentWidth, cardHeight, 2.5, 2.5, "F");
+    drawGradientRect(doc, PAGE_MARGIN, cardTop, accentWidth, cardHeight, VIOLET, TEAL, true);
+    doc.setFillColor(...accent);
+    doc.roundedRect(PAGE_MARGIN, cardTop, accentWidth, cardHeight, 1.2, 1.2, "F");
+
+    let y = cardTop + padY;
+
+    // Slot badge (gradient-tinted per meal position) + prep time.
+    const slotText = SLOT_LABEL[meal.slot].toUpperCase();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    const slotTextWidth = doc.getTextWidth(slotText) + 6;
+    doc.setFillColor(...accent);
+    doc.roundedRect(innerX, y - 4, slotTextWidth, 6, 1.5, 1.5, "F");
+    doc.setTextColor(...WHITE);
+    doc.text(slotText, innerX + 3, y);
+
+    if (meal.prep_time_minutes > 0) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...MUTED);
+      doc.text(`${meal.prep_time_minutes} min prep`, innerX + slotTextWidth + 4, y);
+    }
+
+    // Macro column, right-aligned, anchored to the same header row.
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(...INK);
-    doc.text(`${Math.round(meal.calories)} kcal`, macroX, y + 9);
+    doc.text(`${Math.round(meal.calories)} kcal`, macroColX + 34, y - 1, { align: "right" });
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(...PROTEIN);
-    doc.text(`P ${Math.round(meal.protein_g)}g`, macroX, y + 15);
+    doc.text(`P ${Math.round(meal.protein_g)}g`, macroColX + 34, y + 4, { align: "right" });
     doc.setTextColor(...CARBS);
-    doc.text(`C ${Math.round(meal.carbs_g)}g`, macroX, y + 20);
+    doc.text(`C ${Math.round(meal.carbs_g)}g`, macroColX + 34, y + 8, { align: "right" });
     doc.setTextColor(...FAT);
-    doc.text(`F ${Math.round(meal.fat_g)}g`, macroX, y + 25);
+    doc.text(`F ${Math.round(meal.fat_g)}g`, macroColX + 34, y + 12, { align: "right" });
 
-    y += rowHeight + 6;
-  }
+    y += headerRowH;
 
-  // --- Footer -----------------------------------------------------------
+    // Dish name.
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...INK);
+    nameLines.forEach((line) => {
+      y += LINE_H + 1.4;
+      doc.text(line, innerX, y);
+    });
+    y += 2;
+
+    // Description.
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...MUTED);
+    descLines.forEach((line) => {
+      y += LINE_H;
+      doc.text(line, innerX, y);
+    });
+
+    // Allergen/avoid-list conflict notice. Gap is generous (5mm) because the
+    // preceding description text's ascent extends upward from its own
+    // baseline — too tight a gap here previously let this box's fill paint
+    // over the last line of the description above it.
+    if (conflictLines.length > 0) {
+      y += 5;
+      const boxH = conflictLines.length * LINE_H + 3;
+      doc.setFillColor(...DESTRUCTIVE_BG);
+      doc.roundedRect(innerX, y - 3, innerWidth, boxH, 1.5, 1.5, "F");
+      doc.setTextColor(...DESTRUCTIVE);
+      doc.setFontSize(7.5);
+      conflictLines.forEach((line) => {
+        doc.text(line, innerX + 2, y);
+        y += LINE_H;
+      });
+      // y is now at the box's bottom edge (matches boxH above exactly).
+      y += 2;
+    }
+
+    // Ingredients.
+    if (meal.ingredients.length > 0) {
+      y += 5;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...accent);
+      doc.text("INGREDIENTS", innerX, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...INK);
+      ingredientLineGroups.forEach((lines) => {
+        lines.forEach((line) => {
+          y += LINE_H;
+          doc.text(line, innerX, y);
+        });
+      });
+    }
+
+    // Instructions.
+    if (meal.instructions.length > 0) {
+      y += 4;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...accent);
+      doc.text("INSTRUCTIONS", innerX, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(...INK);
+      instructionLineGroups.forEach((lines) => {
+        lines.forEach((line) => {
+          y += LINE_H;
+          doc.text(line, innerX, y);
+        });
+      });
+    }
+
+    cursor = { y: cardTop + cardHeight + 6 };
+  });
+
+  // --- Footer -------------------------------------------------------------
   const pageCount = doc.internal.pages.length - 1;
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
-    const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setDrawColor(...LINE);
-    doc.line(margin, pageHeight - 16, pageWidth - margin, pageHeight - 16);
+    drawGradientRect(doc, 0, pageHeight - 14, pageWidth, 0.8, VIOLET, TEAL);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
     doc.text(
       "Generated by AuraFit AI, entirely on-device. Not a medical or nutritional prescription.",
-      margin,
-      pageHeight - 10
+      PAGE_MARGIN,
+      pageHeight - 8
     );
-    doc.text(`Page ${p} of ${pageCount}`, pageWidth - margin, pageHeight - 10, { align: "right" });
+    doc.text(`Page ${p} of ${pageCount}`, pageWidth - PAGE_MARGIN, pageHeight - 8, { align: "right" });
   }
 
   return doc;

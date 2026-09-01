@@ -66,10 +66,13 @@ pub struct DietPlanMeal {
     pub slot: MealSlot,
     pub dish_name: String,
     pub description: String,
+    pub prep_time_minutes: i32,
     pub calories: f32,
     pub protein_g: f32,
     pub carbs_g: f32,
     pub fat_g: f32,
+    pub ingredients: Vec<RecipeIngredient>,
+    pub instructions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

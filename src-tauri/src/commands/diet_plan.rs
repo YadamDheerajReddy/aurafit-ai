@@ -5,7 +5,7 @@ use tauri::State;
 
 use crate::db::models::{DietPlanMealRow, DietPlanRow, GuardrailRow, SavedDietPlan};
 use crate::ollama::client::OllamaClient;
-use crate::ollama::schemas::{DietPlanMeal, GeneratedDietPlan, MealSlot};
+use crate::ollama::schemas::{DietPlanMeal, GeneratedDietPlan, MealSlot, RecipeIngredient};
 
 fn slot_label(slot: MealSlot) -> &'static str {
     match slot {
@@ -22,6 +22,7 @@ fn build_prompt(
     diets: &[String],
     allergies: &[String],
     avoided: &[String],
+    target_prep_minutes: Option<i32>,
     target_calories: Option<i32>,
     target_protein_g: Option<f64>,
     target_carbs_g: Option<f64>,
@@ -30,8 +31,10 @@ fn build_prompt(
     let mut prompt = String::from(
         "Create a full one-day diet plan with exactly 5 meals, in this order: \
          breakfast, mid_morning (a light snack), lunch, evening_snack, dinner. \
-         Each meal needs a realistic, appetizing dish (not just a raw ingredient) \
-         with a one-sentence description.",
+         Each meal needs a realistic, appetizing dish (not just a raw ingredient) with a \
+         one-sentence description, plus a complete recipe: a list of ingredients with \
+         quantities, and numbered step-by-step cooking instructions — the same level of \
+         detail as a standalone recipe, not a summary.",
     );
 
     if let Some(cuisine) = cuisine.filter(|c| !c.is_empty()) {
@@ -55,6 +58,12 @@ fn build_prompt(
             avoided.join(", ")
         ));
     }
+    if let Some(minutes) = target_prep_minutes {
+        prompt.push_str(&format!(
+            " Every meal MUST be preparable in {minutes} minutes or less — keep recipes \
+             realistic for that time budget."
+        ));
+    }
     if let (Some(cal), Some(p), Some(c), Some(f)) =
         (target_calories, target_protein_g, target_carbs_g, target_fat_g)
     {
@@ -68,8 +77,10 @@ fn build_prompt(
     prompt.push_str(
         " Respond only in JSON with this shape: {\"meals\": [{\"slot\": \
          \"breakfast\"|\"mid_morning\"|\"lunch\"|\"evening_snack\"|\"dinner\", \"dish_name\": \
-         string, \"description\": string, \"calories\": number, \"protein_g\": number, \
-         \"carbs_g\": number, \"fat_g\": number}]} with exactly one entry per slot.",
+         string, \"description\": string, \"prep_time_minutes\": number, \"calories\": number, \
+         \"protein_g\": number, \"carbs_g\": number, \"fat_g\": number, \"ingredients\": \
+         [{\"name\": string, \"quantity\": string}], \"instructions\": [string]}]} with \
+         exactly one entry per slot.",
     );
 
     prompt
@@ -107,7 +118,13 @@ fn flag_conflicts(meal: &DietPlanMeal, allergies: &[String], avoided: &[String])
         ("Shellfish", &["shrimp", "prawn", "crab", "lobster", "scallop", "oyster", "clam", "mussel"]),
     ];
 
-    let text = format!("{} {}", meal.dish_name, meal.description).to_lowercase();
+    let ingredient_text = meal
+        .ingredients
+        .iter()
+        .map(|i| i.name.to_lowercase())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let text = format!("{} {} {}", meal.dish_name, meal.description, ingredient_text).to_lowercase();
 
     let mut flags: Vec<String> = allergies
         .iter()
@@ -142,6 +159,7 @@ pub struct DietMealCandidate {
 pub struct GenerateDietPlanInput {
     /// Falls back to the saved profile cuisine preference if not given.
     pub cuisine: Option<String>,
+    pub target_prep_minutes: Option<i32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -220,6 +238,7 @@ pub async fn generate_diet_plan(
         &diets,
         &allergies,
         &avoided,
+        input.target_prep_minutes,
         target_calories,
         target_protein,
         target_carbs,
@@ -275,10 +294,13 @@ pub struct SaveDietPlanMealInput {
     pub slot: MealSlot,
     pub dish_name: String,
     pub description: String,
+    pub prep_time_minutes: i32,
     pub calories: f64,
     pub protein_g: f64,
     pub carbs_g: f64,
     pub fat_g: f64,
+    pub ingredients: Vec<RecipeIngredient>,
+    pub instructions: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -324,19 +346,25 @@ pub async fn save_diet_plan(
     .map_err(|e| e.to_string())?;
 
     for (i, meal) in input.meals.iter().enumerate() {
+        let ingredients_json = serde_json::to_string(&meal.ingredients).map_err(|e| e.to_string())?;
+        let instructions_json = serde_json::to_string(&meal.instructions).map_err(|e| e.to_string())?;
+
         sqlx::query(
             "INSERT INTO diet_plan_meals
-               (diet_plan_id, slot, dish_name, description, calories, protein_g, carbs_g, fat_g, sort_order)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+               (diet_plan_id, slot, dish_name, description, prep_time_minutes, calories, protein_g, carbs_g, fat_g, ingredients, instructions, sort_order)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(plan_id)
         .bind(slot_to_str(meal.slot))
         .bind(&meal.dish_name)
         .bind(&meal.description)
+        .bind(meal.prep_time_minutes)
         .bind(meal.calories)
         .bind(meal.protein_g)
         .bind(meal.carbs_g)
         .bind(meal.fat_g)
+        .bind(&ingredients_json)
+        .bind(&instructions_json)
         .bind(i as i32)
         .execute(&mut *tx)
         .await
@@ -360,7 +388,7 @@ pub async fn get_saved_diet_plans(pool: State<'_, SqlitePool>) -> Result<Vec<Sav
     let mut result = Vec::with_capacity(plans.len());
     for plan in plans {
         let meals = sqlx::query_as::<_, DietPlanMealRow>(
-            "SELECT id, diet_plan_id, slot, dish_name, description, calories, protein_g, carbs_g, fat_g, sort_order
+            "SELECT id, diet_plan_id, slot, dish_name, description, prep_time_minutes, calories, protein_g, carbs_g, fat_g, ingredients, instructions, sort_order
              FROM diet_plan_meals WHERE diet_plan_id = ? ORDER BY sort_order ASC",
         )
         .bind(plan.id)
@@ -405,10 +433,31 @@ mod tests {
             slot,
             dish_name: dish_name.to_string(),
             description: description.to_string(),
+            prep_time_minutes: 20,
             calories: 400.0,
             protein_g: 20.0,
             carbs_g: 40.0,
             fat_g: 10.0,
+            ingredients: vec![RecipeIngredient { name: "test ingredient".to_string(), quantity: "1 cup".to_string() }],
+            instructions: vec!["Cook it.".to_string()],
+        }
+    }
+
+    /// Distinct from `meal()` above: puts the target keyword in the
+    /// ingredients list rather than the dish name/description, matching how
+    /// flag_conflicts now searches ingredients too.
+    fn meal_with_ingredient(slot: MealSlot, dish_name: &str, ingredient: &str) -> DietPlanMeal {
+        DietPlanMeal {
+            slot,
+            dish_name: dish_name.to_string(),
+            description: "A tasty dish.".to_string(),
+            prep_time_minutes: 20,
+            calories: 400.0,
+            protein_g: 20.0,
+            carbs_g: 40.0,
+            fat_g: 10.0,
+            ingredients: vec![RecipeIngredient { name: ingredient.to_string(), quantity: "1 cup".to_string() }],
+            instructions: vec!["Cook it.".to_string()],
         }
     }
 
@@ -461,14 +510,21 @@ mod tests {
     #[test]
     fn valid_diet_plan_json_parses() {
         let raw = r#"{"meals": [
-            {"slot": "breakfast", "dish_name": "Idli Sambar", "description": "Steamed rice cakes with lentil stew", "calories": 300, "protein_g": 10, "carbs_g": 50, "fat_g": 5},
-            {"slot": "mid_morning", "dish_name": "Fruit Bowl", "description": "Seasonal fruits", "calories": 150, "protein_g": 2, "carbs_g": 35, "fat_g": 1},
-            {"slot": "lunch", "dish_name": "Sambar Rice with Poriyal", "description": "Rice, lentil stew, and stir-fried vegetables", "calories": 600, "protein_g": 18, "carbs_g": 90, "fat_g": 15},
-            {"slot": "evening_snack", "dish_name": "Roasted Chana", "description": "Roasted chickpeas", "calories": 180, "protein_g": 9, "carbs_g": 25, "fat_g": 5},
-            {"slot": "dinner", "dish_name": "Vegetable Uthappam", "description": "Savory rice pancake with vegetables", "calories": 400, "protein_g": 12, "carbs_g": 60, "fat_g": 10}
+            {"slot": "breakfast", "dish_name": "Idli Sambar", "description": "Steamed rice cakes with lentil stew", "prep_time_minutes": 20, "calories": 300, "protein_g": 10, "carbs_g": 50, "fat_g": 5, "ingredients": [{"name": "idli batter", "quantity": "2 cups"}], "instructions": ["Steam the batter.", "Serve with sambar."]},
+            {"slot": "mid_morning", "dish_name": "Fruit Bowl", "description": "Seasonal fruits", "prep_time_minutes": 5, "calories": 150, "protein_g": 2, "carbs_g": 35, "fat_g": 1, "ingredients": [{"name": "mixed fruit", "quantity": "1 bowl"}], "instructions": ["Chop and serve."]},
+            {"slot": "lunch", "dish_name": "Sambar Rice with Poriyal", "description": "Rice, lentil stew, and stir-fried vegetables", "prep_time_minutes": 35, "calories": 600, "protein_g": 18, "carbs_g": 90, "fat_g": 15, "ingredients": [{"name": "rice", "quantity": "1 cup"}], "instructions": ["Cook rice.", "Prepare sambar.", "Combine and serve."]},
+            {"slot": "evening_snack", "dish_name": "Roasted Chana", "description": "Roasted chickpeas", "prep_time_minutes": 10, "calories": 180, "protein_g": 9, "carbs_g": 25, "fat_g": 5, "ingredients": [{"name": "chickpeas", "quantity": "1 cup"}], "instructions": ["Roast with spices."]},
+            {"slot": "dinner", "dish_name": "Vegetable Uthappam", "description": "Savory rice pancake with vegetables", "prep_time_minutes": 25, "calories": 400, "protein_g": 12, "carbs_g": 60, "fat_g": 10, "ingredients": [{"name": "rice batter", "quantity": "2 cups"}], "instructions": ["Pour batter on griddle.", "Top with vegetables.", "Cook until golden."]}
         ]}"#;
         let result = parse_and_validate(raw);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().len(), 5);
+    }
+
+    #[test]
+    fn flags_conflict_in_ingredient_list_not_just_dish_name() {
+        let m = meal_with_ingredient(MealSlot::Dinner, "Mystery Bowl", "roasted cashews");
+        let flags = flag_conflicts(&m, &["Nuts".to_string()], &[]);
+        assert_eq!(flags, vec!["Nuts".to_string()]);
     }
 }

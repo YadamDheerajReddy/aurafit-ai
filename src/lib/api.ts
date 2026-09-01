@@ -374,10 +374,13 @@ export interface DietPlanMeal {
   slot: MealSlot;
   dish_name: string;
   description: string;
+  prep_time_minutes: number;
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  ingredients: RecipeIngredient[];
+  instructions: string[];
 }
 
 export interface DietMealCandidate extends DietPlanMeal {
@@ -394,8 +397,13 @@ export interface DietPlanGenerationResult {
   target_fat_g: number | null;
 }
 
-export function generateDietPlan(cuisine?: string | null): Promise<DietPlanGenerationResult> {
-  return invoke("generate_diet_plan", { input: { cuisine: cuisine ?? null } });
+export function generateDietPlan(
+  cuisine?: string | null,
+  targetPrepMinutes?: number | null
+): Promise<DietPlanGenerationResult> {
+  return invoke("generate_diet_plan", {
+    input: { cuisine: cuisine ?? null, target_prep_minutes: targetPrepMinutes ?? null },
+  });
 }
 
 export interface SaveDietPlanInput {
@@ -418,10 +426,15 @@ export interface SavedDietPlanMeal {
   slot: MealSlot;
   dish_name: string;
   description: string | null;
+  prep_time_minutes: number | null;
   calories: number | null;
   protein_g: number | null;
   carbs_g: number | null;
   fat_g: number | null;
+  /** JSON-encoded array — parse before use. */
+  ingredients: string | null;
+  /** JSON-encoded array — parse before use. */
+  instructions: string | null;
   sort_order: number;
 }
 

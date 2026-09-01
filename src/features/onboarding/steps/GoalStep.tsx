@@ -76,8 +76,19 @@ export function GoalStep({
       )
     ).then((pairs) => {
       if (cancelled) return;
-      setResults(Object.fromEntries(pairs));
+      const nextResults = Object.fromEntries(pairs) as Partial<Record<GoalType, TargetResult>>;
+      setResults(nextResults);
       setLoading(false);
+
+      // The parent only learns a goal's TargetResult via onSelect, which
+      // otherwise only fires when the user clicks a goal option. If a goal
+      // is already selected (editing an existing profile) and the user
+      // just clicks Continue without re-clicking it, the parent's
+      // targetResult stays null and the flow silently dead-ends later —
+      // so sync it here whenever the pre-selected goal's result loads.
+      if (goalType && nextResults[goalType]) {
+        onSelect(goalType, nextResults[goalType]!);
+      }
     });
 
     return () => {

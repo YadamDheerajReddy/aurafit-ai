@@ -28,3 +28,54 @@ pub struct GuardrailRow {
 pub struct LatestWeightRow {
     pub weight_kg: f64,
 }
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct FoodItemRow {
+    pub fdc_id: i64,
+    pub description: String,
+    pub category: Option<String>,
+    pub calories_per_100g: f64,
+    pub protein_g_per_100g: f64,
+    pub carbs_g_per_100g: f64,
+    pub fat_g_per_100g: f64,
+    pub fiber_g_per_100g: Option<f64>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct FoodLogRow {
+    pub id: i64,
+    pub logged_at: String,
+    pub source: String,
+    pub total_calories: f64,
+    pub total_protein_g: f64,
+    pub total_carbs_g: f64,
+    pub total_fat_g: f64,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct FoodLogItemRow {
+    pub id: i64,
+    pub food_log_id: i64,
+    pub name: String,
+    pub estimated_grams: f64,
+    pub calories: f64,
+    pub protein_g: f64,
+    pub carbs_g: f64,
+    pub fat_g: f64,
+    pub confidence: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct FoodLogEntry {
+    #[serde(flatten)]
+    pub log: FoodLogRow,
+    pub items: Vec<FoodLogItemRow>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct WeightHistoryRow {
+    pub id: i64,
+    pub weight_kg: f64,
+    pub logged_at: String,
+    pub note: Option<String>,
+}

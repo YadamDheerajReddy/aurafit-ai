@@ -8,16 +8,15 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_sql::Builder::default().build())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&app_data_dir)?;
             let db_path = app_data_dir.join(db::DB_FILENAME);
 
             // Runs synchronously here, before the webview loads, so the
-            // schema is guaranteed to exist before any frontend code
-            // (including the JS-side USDA search via tauri-plugin-sql)
-            // touches the file.
+            // schema is guaranteed to exist before any frontend code touches
+            // the file.
             let pool = tauri::async_runtime::block_on(async {
                 let pool = db::pool::connect(&db_path)
                     .await
@@ -37,6 +36,14 @@ pub fn run() {
             commands::biometrics::save_goal,
             commands::biometrics::set_guardrails,
             commands::biometrics::get_user_state,
+            commands::lookup::search_usda_foods,
+            commands::logging::save_food_log,
+            commands::logging::get_todays_log,
+            commands::logging::delete_food_log,
+            commands::logging::save_weight_entry,
+            commands::logging::get_weight_history,
+            commands::analytics::get_progress_charts,
+            commands::export::export_data,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

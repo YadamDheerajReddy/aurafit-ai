@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
-import { Camera, ChefHat, TrendingUp, Settings } from "lucide-react";
+import { ChefHat } from "lucide-react";
 import { NavRail, type NavDestination } from "@/components/shell/NavRail";
 import { ComingSoon } from "@/components/shell/ComingSoon";
 import { AuraMark } from "@/components/AuraMark";
 import { Onboarding } from "@/features/onboarding/Onboarding";
 import { Dashboard } from "@/features/dashboard/Dashboard";
+import { LogMealPage } from "@/features/logging/LogMealPage";
+import { ProgressPage } from "@/features/progress/ProgressPage";
+import { SettingsPage } from "@/features/settings/SettingsPage";
 import { getUserState, type UserState } from "@/lib/api";
 
 function App() {
@@ -40,14 +43,8 @@ function App() {
   return (
     <div className="flex min-h-screen bg-background">
       <NavRail active={nav} onSelect={setNav} />
-      {nav === "dashboard" && <Dashboard userState={userState} />}
-      {nav === "log-meal" && (
-        <ComingSoon
-          icon={Camera}
-          title="Vision Meal Logger"
-          description="Photo-based logging with local AI is coming in Phase 3."
-        />
-      )}
+      {nav === "dashboard" && <Dashboard userState={userState} onDataChanged={refresh} />}
+      {nav === "log-meal" && <LogMealPage onLogged={() => setNav("dashboard")} />}
       {nav === "recipes" && (
         <ComingSoon
           icon={ChefHat}
@@ -55,20 +52,8 @@ function App() {
           description="Pantry-aware, guardrail-safe recipes are coming in Phase 4."
         />
       )}
-      {nav === "progress" && (
-        <ComingSoon
-          icon={TrendingUp}
-          title="Progress & Analytics"
-          description="Weight trends and macro compliance charts are coming in Phase 2."
-        />
-      )}
-      {nav === "settings" && (
-        <ComingSoon
-          icon={Settings}
-          title="Settings & Privacy"
-          description="Profile editing, model management, and data export are coming soon."
-        />
-      )}
+      {nav === "progress" && <ProgressPage />}
+      {nav === "settings" && <SettingsPage />}
     </div>
   );
 }

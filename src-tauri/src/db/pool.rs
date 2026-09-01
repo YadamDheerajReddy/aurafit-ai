@@ -8,7 +8,10 @@ pub async fn connect(db_path: &Path) -> Result<SqlitePool, sqlx::Error> {
     let options = SqliteConnectOptions::new()
         .filename(db_path)
         .create_if_missing(true)
-        .journal_mode(SqliteJournalMode::Wal);
+        .journal_mode(SqliteJournalMode::Wal)
+        // Required for ON DELETE CASCADE (food_log -> food_log_items) to
+        // actually enforce/cascade — SQLite defaults this off per connection.
+        .foreign_keys(true);
 
     SqlitePoolOptions::new()
         .max_connections(5)

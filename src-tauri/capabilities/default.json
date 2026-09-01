@@ -6,6 +6,6 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "sql:default"
+    "dialog:default"
   ]
 }

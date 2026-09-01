@@ -99,7 +99,7 @@ export function searchUsdaFoods(query: string): Promise<FoodItem[]> {
 // Food logging
 // ---------------------------------------------------------------------------
 
-export type FoodLogSource = "vision_ai" | "quick_lookup" | "manual" | "recipe";
+export type FoodLogSource = "vision_ai" | "quick_lookup" | "manual" | "recipe" | "ai_text";
 export type Confidence = "low" | "medium" | "high";
 
 export interface FoodLogItemInput {
@@ -207,6 +207,7 @@ export interface OllamaStatusResult {
   running: boolean;
   models_installed: string[];
   vision_model_ready: boolean;
+  text_model_ready: boolean;
 }
 
 export function checkOllamaStatus(): Promise<OllamaStatusResult> {
@@ -237,4 +238,9 @@ export interface MealAnalysisResult {
 /** `imageDataUrl` is a `data:image/...;base64,...` string. */
 export function analyzeMealPhoto(imageDataUrl: string): Promise<MealAnalysisResult> {
   return invoke("analyze_meal_photo", { imageDataUrl });
+}
+
+/** Text-only fallback: describe what you ate, a local text LLM estimates the macros. */
+export function estimateMealFromText(description: string): Promise<MealAnalysisResult> {
+  return invoke("estimate_meal_from_text", { description });
 }

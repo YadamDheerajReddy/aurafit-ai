@@ -18,6 +18,11 @@ const MIGRATIONS: &[MigrationFile] = &[
         description: "usda_seed",
         sql: include_str!("./sql/0002_usda_seed.sql"),
     },
+    MigrationFile {
+        version: 3,
+        description: "add_ai_text_source",
+        sql: include_str!("./sql/0003_add_ai_text_source.sql"),
+    },
 ];
 
 /// Applies pending migrations in order, tracked in `schema_migrations`

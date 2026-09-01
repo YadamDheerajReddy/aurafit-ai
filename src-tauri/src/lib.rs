@@ -1,6 +1,6 @@
 mod calc;
 mod commands;
-mod db;
+pub mod db;
 pub mod ollama;
 
 use tauri::Manager;
@@ -47,6 +47,7 @@ pub fn run() {
             commands::export::export_data,
             commands::vision::check_ollama_status,
             commands::vision::analyze_meal_photo,
+            commands::vision::estimate_meal_from_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

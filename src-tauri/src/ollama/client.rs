@@ -1,4 +1,4 @@
-use serde_json::json;
+use serde_json::{json, Value};
 use std::time::Duration;
 
 /// The only network socket AuraFit AI ever opens (TRD, 01 — Trust Boundary).
@@ -12,12 +12,19 @@ const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
 /// seconds — this bounds it so a genuinely stuck request still surfaces a
 /// clear error instead of an indefinite spinner (TRD's <30s target assumes
 /// comfortable headroom, which not every machine has).
-const ANALYZE_TIMEOUT: Duration = Duration::from_secs(180);
+const CHAT_TIMEOUT: Duration = Duration::from_secs(180);
+
 // TRD 4.1 names llama3.2-vision:11b, but that needs ~8GB+ VRAM/RAM headroom
 // this dev machine doesn't have. qwen2.5vl:7b (~6GB) is a deliberate
 // lighter-hardware substitution — same request/response contract, same
 // JSON-mode structured output, just a smaller backing model.
 pub const VISION_MODEL: &str = "qwen2.5vl:7b";
+
+/// Text-only fallback for hardware where the vision path is unreliable
+/// (e.g. a GPU/CUDA driver incompatibility): the user types what they ate
+/// instead of photographing it, and this model estimates the macros. Reuses
+/// the exact same MealAnalysis JSON contract as the vision path.
+pub const TEXT_MODEL: &str = "qwen2.5:3b-instruct";
 
 pub struct OllamaStatus {
     pub running: bool,
@@ -58,7 +65,7 @@ impl OllamaClient {
             };
         }
 
-        let body: serde_json::Value = resp.json().await.unwrap_or_default();
+        let body: Value = resp.json().await.unwrap_or_default();
         let models = body["models"]
             .as_array()
             .map(|arr| {
@@ -80,16 +87,14 @@ impl OllamaClient {
     pub async fn analyze_meal_photo(
         &self,
         image_base64: &str,
-        retry_context: Option<&str>,
+        retry_context: Option<String>,
     ) -> Result<String, String> {
-        let mut prompt = "Identify each food item on this plate. For each item, estimate its \
-             weight in grams and its calories, protein, carbs, and fat. Respond only in the \
-             given JSON schema."
-            .to_string();
-        if let Some(ctx) = retry_context {
-            prompt.push(' ');
-            prompt.push_str(ctx);
-        }
+        let prompt = with_retry_context(
+            "Identify each food item on this plate. For each item, estimate its weight in \
+             grams and its calories, protein, carbs, and fat. Respond only in the given JSON \
+             schema.",
+            retry_context.as_deref(),
+        );
 
         let body = json!({
             "model": VISION_MODEL,
@@ -102,11 +107,47 @@ impl OllamaClient {
             "stream": false,
         });
 
+        self.chat(body).await
+    }
+
+    /// POST /api/chat with a typed meal description, no image — the
+    /// text-only fallback path. Same JSON contract as the vision path so
+    /// the frontend's Verification Table and Zod schema are reused as-is.
+    pub async fn estimate_meal_from_text(
+        &self,
+        description: &str,
+        retry_context: Option<String>,
+    ) -> Result<String, String> {
+        let prompt = with_retry_context(
+            &format!(
+                "The user describes a meal they ate: \"{description}\". Identify each distinct \
+                 food item mentioned, and for each one estimate its typical weight in grams and \
+                 its calories, protein, carbs, and fat using standard nutrition data for that \
+                 food. If a quantity isn't given, assume one typical serving. Respond only in \
+                 the given JSON schema."
+            ),
+            retry_context.as_deref(),
+        );
+
+        let body = json!({
+            "model": TEXT_MODEL,
+            "messages": [{
+                "role": "user",
+                "content": prompt,
+            }],
+            "format": "json",
+            "stream": false,
+        });
+
+        self.chat(body).await
+    }
+
+    async fn chat(&self, body: Value) -> Result<String, String> {
         let resp = self
             .http
             .post(format!("{OLLAMA_BASE_URL}/api/chat"))
             .json(&body)
-            .timeout(ANALYZE_TIMEOUT)
+            .timeout(CHAT_TIMEOUT)
             .send()
             .await
             .map_err(|e| {
@@ -115,7 +156,7 @@ impl OllamaClient {
                         "Ollama didn't respond within {}s. This usually means the model is \
                          running but your system is low on free RAM (swapping to disk is slow) \
                          — try closing other apps and retrying.",
-                        ANALYZE_TIMEOUT.as_secs()
+                        CHAT_TIMEOUT.as_secs()
                     )
                 } else {
                     format!("Ollama request failed: {e}")
@@ -126,12 +167,21 @@ impl OllamaClient {
             return Err(format!("Ollama returned HTTP {}", resp.status()));
         }
 
-        let resp_json: serde_json::Value =
-            resp.json().await.map_err(|e| format!("invalid Ollama response: {e}"))?;
+        let resp_json: Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("invalid Ollama response: {e}"))?;
 
         resp_json["message"]["content"]
             .as_str()
             .map(String::from)
             .ok_or_else(|| "missing message.content in Ollama response".to_string())
+    }
+}
+
+fn with_retry_context(base_prompt: &str, retry_context: Option<&str>) -> String {
+    match retry_context {
+        Some(ctx) => format!("{base_prompt} {ctx}"),
+        None => base_prompt.to_string(),
     }
 }

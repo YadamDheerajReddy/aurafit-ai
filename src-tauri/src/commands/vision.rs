@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::future::Future;
 
 use crate::ollama::client::OllamaClient;
 use crate::ollama::image::prepare_image;
@@ -9,6 +10,7 @@ pub struct OllamaStatusResult {
     pub running: bool,
     pub models_installed: Vec<String>,
     pub vision_model_ready: bool,
+    pub text_model_ready: bool,
 }
 
 #[tauri::command]
@@ -18,11 +20,16 @@ pub async fn check_ollama_status() -> OllamaStatusResult {
         .models_installed
         .iter()
         .any(|m| m.starts_with("qwen2.5vl"));
+    let text_model_ready = status
+        .models_installed
+        .iter()
+        .any(|m| m.starts_with("qwen2.5:3b") || m.starts_with("llama3.2:3b"));
 
     OllamaStatusResult {
         running: status.running,
         models_installed: status.models_installed,
         vision_model_ready,
+        text_model_ready,
     }
 }
 
@@ -37,6 +44,71 @@ pub struct MealAnalysisResult {
 
 fn parse_and_validate(raw: &str) -> Result<MealAnalysis, String> {
     serde_json::from_str::<MealAnalysis>(raw).map_err(|e| e.to_string())
+}
+
+/// Shared re-prompt-on-failure orchestration (TRD 4.1, step 4 — Validate):
+/// one automatic retry carrying the validation error as context, then a
+/// manual-entry fallback. `call` is the model invocation itself — the only
+/// thing that differs between the vision and text-description paths.
+async fn run_with_retry<F, Fut>(call: F) -> Result<MealAnalysisResult, String>
+where
+    F: Fn(Option<String>) -> Fut,
+    Fut: Future<Output = Result<String, String>>,
+{
+    let raw = call(None).await?;
+    match parse_and_validate(&raw) {
+        Ok(analysis) => Ok(MealAnalysisResult {
+            analysis: Some(analysis),
+            needs_manual_entry: false,
+            error: None,
+        }),
+        Err(first_error) => {
+            let retry_context = format!(
+                "Your previous response was invalid JSON for the expected schema: {first_error}. \
+                 Respond ONLY with a JSON object matching: {{\"items\": [{{\"name\": string, \
+                 \"estimated_grams\": number, \"calories\": number, \"protein_g\": number, \
+                 \"carbs_g\": number, \"fat_g\": number, \"confidence\": \"low\"|\"medium\"|\"high\"}}], \
+                 \"total_calories\": number}}."
+            );
+
+            let retry_raw = call(Some(retry_context)).await?;
+            match parse_and_validate(&retry_raw) {
+                Ok(analysis) => Ok(MealAnalysisResult {
+                    analysis: Some(analysis),
+                    needs_manual_entry: false,
+                    error: None,
+                }),
+                Err(second_error) => Ok(MealAnalysisResult {
+                    analysis: None,
+                    needs_manual_entry: true,
+                    error: Some(second_error),
+                }),
+            }
+        }
+    }
+}
+
+/// Runs the full vision pipeline (TRD 4.1: Encode -> Infer -> Validate).
+#[tauri::command]
+pub async fn analyze_meal_photo(image_data_url: String) -> Result<MealAnalysisResult, String> {
+    let image_base64 = prepare_image(&image_data_url)?;
+    let client = OllamaClient::new();
+    run_with_retry(|ctx| client.analyze_meal_photo(&image_base64, ctx)).await
+}
+
+/// Text-only fallback: the user types what they ate instead of photographing
+/// it, and a local text LLM estimates the macros. Added for hardware where
+/// the vision path is unreliable (e.g. a GPU/CUDA driver incompatibility) —
+/// same validation/retry/fallback contract as the vision path.
+#[tauri::command]
+pub async fn estimate_meal_from_text(description: String) -> Result<MealAnalysisResult, String> {
+    let trimmed = description.trim();
+    if trimmed.is_empty() {
+        return Err("Please describe what you ate.".to_string());
+    }
+
+    let client = OllamaClient::new();
+    run_with_retry(|ctx| client.estimate_meal_from_text(trimmed, ctx)).await
 }
 
 #[cfg(test)]
@@ -93,51 +165,5 @@ mod tests {
         let result = parse_and_validate(valid);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().items.len(), 1);
-    }
-}
-
-/// Runs the full vision pipeline (TRD 4.1: Encode -> Infer -> Validate),
-/// with one automatic re-prompt carrying the validation error as context
-/// before giving up and asking the frontend to fall back to manual entry.
-#[tauri::command]
-pub async fn analyze_meal_photo(image_data_url: String) -> Result<MealAnalysisResult, String> {
-    let image_base64 = prepare_image(&image_data_url)?;
-    let client = OllamaClient::new();
-
-    let raw = client.analyze_meal_photo(&image_base64, None).await?;
-    match parse_and_validate(&raw) {
-        Ok(analysis) => {
-            return Ok(MealAnalysisResult {
-                analysis: Some(analysis),
-                needs_manual_entry: false,
-                error: None,
-            })
-        }
-        Err(first_error) => {
-            let retry_context = format!(
-                "Your previous response was invalid JSON for the expected schema: {first_error}. \
-                 Respond ONLY with a JSON object matching: {{\"items\": [{{\"name\": string, \
-                 \"estimated_grams\": number, \"calories\": number, \"protein_g\": number, \
-                 \"carbs_g\": number, \"fat_g\": number, \"confidence\": \"low\"|\"medium\"|\"high\"}}], \
-                 \"total_calories\": number}}."
-            );
-
-            let retry_raw = client
-                .analyze_meal_photo(&image_base64, Some(&retry_context))
-                .await?;
-
-            match parse_and_validate(&retry_raw) {
-                Ok(analysis) => Ok(MealAnalysisResult {
-                    analysis: Some(analysis),
-                    needs_manual_entry: false,
-                    error: None,
-                }),
-                Err(second_error) => Ok(MealAnalysisResult {
-                    analysis: None,
-                    needs_manual_entry: true,
-                    error: Some(second_error),
-                }),
-            }
-        }
     }
 }

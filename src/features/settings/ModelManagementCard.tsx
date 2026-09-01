@@ -48,7 +48,7 @@ export function ModelManagementCard() {
           AI Models
         </CardTitle>
         <CardDescription>
-          Vision AI logging (Log Meal) runs entirely through a local Ollama instance.
+          Describe and Vision logging (Log Meal) run entirely through a local Ollama instance.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -73,7 +73,20 @@ export function ModelManagementCard() {
             </div>
 
             <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
-              <span className="text-sm text-foreground">qwen2.5vl:7b</span>
+              <span className="text-sm text-foreground">qwen2.5:3b-instruct (Describe)</span>
+              {status?.text_model_ready ? (
+                <Badge variant="success" className="gap-1">
+                  <CheckCircle2 className="size-3" /> Installed
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="gap-1 border-destructive/40 text-destructive">
+                  <XCircle className="size-3" /> Not installed
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between rounded-md border border-border px-4 py-3">
+              <span className="text-sm text-foreground">qwen2.5vl:7b (Vision)</span>
               {status?.vision_model_ready ? (
                 <Badge variant="success" className="gap-1">
                   <CheckCircle2 className="size-3" /> Installed
@@ -98,27 +111,35 @@ export function ModelManagementCard() {
               </div>
             )}
 
-            {(!status?.running || !status?.vision_model_ready) && (
+            {!status?.running && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-4 py-3">
+                <p className="text-sm text-foreground">Install Ollama, then pull the model(s) you want:</p>
+                <a
+                  href="https://ollama.com/download"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-primary underline underline-offset-2"
+                >
+                  ollama.com/download
+                </a>
+              </div>
+            )}
+
+            {status?.running && !status.text_model_ready && (
               <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-4 py-3">
                 <p className="text-sm text-foreground">
-                  {!status?.running
-                    ? "Install Ollama, then run this command to pull the vision model:"
-                    : "Run this command to pull the vision model:"}
+                  Run this command to pull the Describe model (lightweight, text-only):
                 </p>
-                {!status?.running && (
-                  <a
-                    href="https://ollama.com/download"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm text-primary underline underline-offset-2"
-                  >
-                    ollama.com/download
-                  </a>
-                )}
+                <CopyableCommand command="ollama pull qwen2.5:3b-instruct" />
+                <p className="text-xs text-muted-foreground">~2GB, one-time download.</p>
+              </div>
+            )}
+
+            {status?.running && !status.vision_model_ready && (
+              <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-4 py-3">
+                <p className="text-sm text-foreground">Run this command to pull the Vision model:</p>
                 <CopyableCommand command="ollama pull qwen2.5vl:7b" />
-                <p className="text-xs text-muted-foreground">
-                  This is a ~6GB download that only happens once.
-                </p>
+                <p className="text-xs text-muted-foreground">~6GB, one-time download.</p>
               </div>
             )}
 

@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "AuraFit AI — a privacy-first, local-only calorie and body-transformation tracker"
 authors = ["AuraFit AI"]
 edition = "2021"
+# `cargo run` (no --bin) is what `tauri dev` invokes; without this it can't
+# infer a default between the app binary and the golden_set harness binary.
+default-run = "aurafit"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -26,7 +29,16 @@ sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 tauri-plugin-dialog = "2.7.3"
 csv = "1.4.0"
-
-[dev-dependencies]
+# default-features off: no TLS stack needed, every request targets
+# http://localhost:11434 only (TRD trust boundary).
+reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
+base64 = "0.23.1"
+image = "0.25.10"
+# Regular (not dev) dependency: the golden-set accuracy harness (src/bin/golden_set.rs)
+# is a real CLI deliverable (SDLC doc, QA Strategy), not just test scaffolding.
 tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread"] }
+
+[[bin]]
+name = "golden_set"
+path = "src/bin/golden_set.rs"
 

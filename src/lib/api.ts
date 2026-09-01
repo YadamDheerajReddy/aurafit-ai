@@ -198,3 +198,43 @@ export function getProgressCharts(days: number): Promise<ProgressData> {
 export function exportData(destDir: string): Promise<string[]> {
   return invoke("export_data", { destDir });
 }
+
+// ---------------------------------------------------------------------------
+// Vision AI (Ollama)
+// ---------------------------------------------------------------------------
+
+export interface OllamaStatusResult {
+  running: boolean;
+  models_installed: string[];
+  vision_model_ready: boolean;
+}
+
+export function checkOllamaStatus(): Promise<OllamaStatusResult> {
+  return invoke("check_ollama_status");
+}
+
+export interface RawFoodItem {
+  name: string;
+  estimated_grams: number;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  confidence: Confidence;
+}
+
+export interface RawMealAnalysis {
+  items: RawFoodItem[];
+  total_calories: number;
+}
+
+export interface MealAnalysisResult {
+  analysis: RawMealAnalysis | null;
+  needs_manual_entry: boolean;
+  error: string | null;
+}
+
+/** `imageDataUrl` is a `data:image/...;base64,...` string. */
+export function analyzeMealPhoto(imageDataUrl: string): Promise<MealAnalysisResult> {
+  return invoke("analyze_meal_photo", { imageDataUrl });
+}

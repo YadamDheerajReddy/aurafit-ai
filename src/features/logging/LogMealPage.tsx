@@ -1,6 +1,7 @@
 import { Camera } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuickLookupTab } from "@/features/logging/QuickLookupTab";
+import { VisionTab } from "@/features/logging/VisionTab";
 
 export function LogMealPage({ onLogged }: { onLogged: () => void }) {
   return (
@@ -8,12 +9,13 @@ export function LogMealPage({ onLogged }: { onLogged: () => void }) {
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground">Log Meal</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Quick Lookup searches the local USDA reference set — no network,
-          instant results.
+          Vision AI estimates a full plate from one photo; Quick Lookup
+          searches the local USDA reference set — either way, nothing leaves
+          this device.
         </p>
       </div>
 
-      <Tabs defaultValue="quick-lookup">
+      <Tabs defaultValue="vision">
         <TabsList className="w-full">
           <TabsTrigger value="vision" className="gap-1.5">
             <Camera className="size-4" />
@@ -23,18 +25,7 @@ export function LogMealPage({ onLogged }: { onLogged: () => void }) {
         </TabsList>
 
         <TabsContent value="vision">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-16 text-center">
-            <Camera className="size-8 text-muted-foreground" />
-            <div>
-              <p className="font-display text-base font-semibold text-foreground">
-                Photo-based logging arrives in Phase 3
-              </p>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                Local vision AI (llama3.2-vision) will estimate a full plate
-                from one photo. Use Quick Lookup for now.
-              </p>
-            </div>
-          </div>
+          <VisionTab onLogged={onLogged} />
         </TabsContent>
 
         <TabsContent value="quick-lookup">

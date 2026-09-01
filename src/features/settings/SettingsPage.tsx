@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { CheckCircle2, Download, Loader2, ShieldCheck, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ModelManagementCard } from "@/features/settings/ModelManagementCard";
 import { exportData } from "@/lib/api";
 
 export function SettingsPage() {
@@ -58,6 +59,8 @@ export function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <ModelManagementCard />
 
       <Card>
         <CardHeader>

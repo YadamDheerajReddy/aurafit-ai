@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="auraGradient" x1="150" y1="150" x2="874" y2="874" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#0D9488"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="512" cy="512" r="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7C3AED" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#0D9488" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#0D9488" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#12162A"/>
+      <stop offset="1" stop-color="#0B0F19"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1024" height="1024" rx="224" fill="url(#bgGradient)"/>
+  <circle cx="512" cy="512" r="440" fill="url(#glow)"/>
+
+  <circle
+    cx="512" cy="512" r="300"
+    fill="none"
+    stroke="url(#auraGradient)"
+    stroke-width="68"
+    stroke-linecap="round"
+    stroke-dasharray="1414 1885"
+    transform="rotate(-90 512 512)"
+  />
+</svg>

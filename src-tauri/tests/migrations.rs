@@ -83,5 +83,30 @@ async fn migrations_apply_and_preserve_data_and_constraints() {
         .fetch_all(&pool)
         .await
         .expect("read schema_migrations");
-    assert_eq!(applied, vec![1, 2, 3]);
+    assert_eq!(applied, vec![1, 2, 3, 4]);
+
+    // 0004 adds a nullable target_weight_kg column to goals without disturbing existing rows.
+    sqlx::query(
+        "INSERT INTO goals (goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g)
+         VALUES ('maintenance', 2000, 150, 200, 60, 30)",
+    )
+    .execute(&pool)
+    .await
+    .expect("insert goal without target_weight_kg");
+
+    let target_weight: Option<f64> = sqlx::query_scalar("SELECT target_weight_kg FROM goals LIMIT 1")
+        .fetch_one(&pool)
+        .await
+        .expect("read target_weight_kg");
+    assert_eq!(target_weight, None, "target_weight_kg should default to NULL");
+
+    sqlx::query("UPDATE goals SET target_weight_kg = 72.5 WHERE goal_type = 'maintenance'")
+        .execute(&pool)
+        .await
+        .expect("set target_weight_kg");
+    let target_weight: Option<f64> = sqlx::query_scalar("SELECT target_weight_kg FROM goals LIMIT 1")
+        .fetch_one(&pool)
+        .await
+        .expect("re-read target_weight_kg");
+    assert_eq!(target_weight, Some(72.5));
 }

@@ -8,6 +8,7 @@ import { ACTIVITY_LEVELS } from "@/features/onboarding/constants";
 import type { ActivityLevel, Sex } from "@/lib/api";
 
 export interface BiometricsValue {
+  name: string;
   sex: Sex;
   ageYears: number;
   heightCm: number;
@@ -44,6 +45,17 @@ export function BiometricsStep({ value, onChange, onNext, onBack }: BiometricsSt
         <p className="mt-1 text-sm text-muted-foreground">
           Used only to calculate your calorie and macro targets — stored locally.
         </p>
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="name">Name (optional)</Label>
+        <Input
+          id="name"
+          type="text"
+          placeholder="What should we call you?"
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+        />
       </div>
 
       <div className="grid gap-2">

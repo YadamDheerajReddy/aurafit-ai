@@ -126,6 +126,29 @@ impl OllamaClient {
         self.chat(body).await
     }
 
+    /// POST /api/chat for a full-day diet plan. Same shape as recipe
+    /// generation — the caller builds the prompt (calorie/macro targets,
+    /// cuisine, guardrails, avoid-list), the client stays transport-only.
+    pub async fn generate_diet_plan(
+        &self,
+        prompt: &str,
+        retry_context: Option<String>,
+    ) -> Result<String, String> {
+        let full_prompt = with_retry_context(prompt, retry_context.as_deref());
+
+        let body = json!({
+            "model": TEXT_MODEL,
+            "messages": [{
+                "role": "user",
+                "content": full_prompt,
+            }],
+            "format": "json",
+            "stream": false,
+        });
+
+        self.chat(body).await
+    }
+
     async fn chat(&self, body: Value) -> Result<String, String> {
         let resp = self
             .http

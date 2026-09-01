@@ -4,10 +4,11 @@ import { ProgressDots } from "@/features/onboarding/ProgressDots";
 import { BiometricsStep, type BiometricsValue } from "@/features/onboarding/steps/BiometricsStep";
 import { GoalStep } from "@/features/onboarding/steps/GoalStep";
 import { GuardrailsStep } from "@/features/onboarding/steps/GuardrailsStep";
+import { PreferencesStep } from "@/features/onboarding/steps/PreferencesStep";
 import { ReadyStep } from "@/features/onboarding/steps/ReadyStep";
 import type { GoalType, TargetResult, UserState } from "@/lib/api";
 
-const STEPS = ["biometrics", "goal", "guardrails", "ready"] as const;
+const STEPS = ["biometrics", "goal", "guardrails", "preferences", "ready"] as const;
 type Step = (typeof STEPS)[number];
 
 function ageFromDob(dob: string | undefined): number {
@@ -28,6 +29,7 @@ export function EditProfileModal({
 }) {
   const [step, setStep] = useState<Step>("biometrics");
   const [biometrics, setBiometrics] = useState<BiometricsValue>({
+    name: userState.profile?.name ?? "",
     sex: userState.profile?.sex ?? "male",
     ageYears: ageFromDob(userState.profile?.date_of_birth),
     heightCm: userState.profile?.height_cm ?? 0,
@@ -46,6 +48,10 @@ export function EditProfileModal({
   );
   const [allergies, setAllergies] = useState<string[]>(
     userState.guardrails.filter((g) => g.constraint_type === "allergy").map((g) => g.value)
+  );
+  const [cuisine, setCuisine] = useState(userState.profile?.cuisine_preference ?? "");
+  const [avoidedIngredients, setAvoidedIngredients] = useState<string[]>(
+    userState.avoided_ingredients
   );
 
   const stepIndex = STEPS.indexOf(step);
@@ -103,8 +109,21 @@ export function EditProfileModal({
               setDiets(d);
               setAllergies(a);
             }}
-            onNext={() => setStep("ready")}
+            onNext={() => setStep("preferences")}
             onBack={() => setStep("goal")}
+          />
+        )}
+
+        {step === "preferences" && (
+          <PreferencesStep
+            cuisine={cuisine}
+            avoidedIngredients={avoidedIngredients}
+            onChange={(c, a) => {
+              setCuisine(c);
+              setAvoidedIngredients(a);
+            }}
+            onNext={() => setStep("ready")}
+            onBack={() => setStep("guardrails")}
           />
         )}
 
@@ -115,8 +134,10 @@ export function EditProfileModal({
             targetResult={targetResult}
             diets={diets}
             allergies={allergies}
+            cuisine={cuisine}
+            avoidedIngredients={avoidedIngredients}
             targetWeightKg={goalType !== "maintenance" && targetWeightKg ? Number(targetWeightKg) : null}
-            onBack={() => setStep("guardrails")}
+            onBack={() => setStep("preferences")}
             onComplete={onSaved}
           />
         )}

@@ -33,11 +33,13 @@ export function calculateTargets(request: TargetRequest): Promise<TargetResult> 
 }
 
 export interface SaveProfileInput {
+  name?: string | null;
   sex: Sex;
   date_of_birth: string;
   height_cm: number;
   weight_kg: number;
   activity_level: ActivityLevel;
+  cuisine_preference?: string | null;
 }
 
 export function saveProfile(input: SaveProfileInput): Promise<void> {
@@ -58,13 +60,23 @@ export function setGuardrails(diets: string[], allergies: string[]): Promise<voi
   return invoke("set_guardrails", { input: { diets, allergies } });
 }
 
+export function setAvoidedIngredients(ingredients: string[]): Promise<void> {
+  return invoke("set_avoided_ingredients", { input: { ingredients } });
+}
+
+export function setWaterGoal(goalMl: number): Promise<void> {
+  return invoke("set_water_goal", { input: { goal_ml: goalMl } });
+}
+
 export interface UserState {
   onboarded: boolean;
   profile: {
+    name: string | null;
     sex: Sex;
     date_of_birth: string;
     height_cm: number;
     activity_level: ActivityLevel;
+    cuisine_preference: string | null;
   } | null;
   latest_weight_kg: number | null;
   active_goal: {
@@ -77,6 +89,8 @@ export interface UserState {
     target_weight_kg: number | null;
   } | null;
   guardrails: { constraint_type: "diet" | "allergy"; value: string }[];
+  avoided_ingredients: string[];
+  water_goal_ml: number | null;
 }
 
 export function getUserState(): Promise<UserState> {
@@ -312,4 +326,126 @@ export function getSavedRecipes(): Promise<SavedRecipe[]> {
 
 export function deleteRecipe(id: number): Promise<void> {
   return invoke("delete_recipe", { id });
+}
+
+// ---------------------------------------------------------------------------
+// Water tracking
+// ---------------------------------------------------------------------------
+
+export function logWater(amountMl: number): Promise<number> {
+  return invoke("log_water", { input: { amount_ml: amountMl } });
+}
+
+export interface WaterLogEntry {
+  id: number;
+  amount_ml: number;
+  logged_at: string;
+}
+
+export interface TodaysWater {
+  total_ml: number;
+  entries: WaterLogEntry[];
+}
+
+export function getTodaysWater(): Promise<TodaysWater> {
+  return invoke("get_todays_water");
+}
+
+export function deleteWaterEntry(id: number): Promise<void> {
+  return invoke("delete_water_entry", { id });
+}
+
+export interface DailyWaterPoint {
+  date: string;
+  total_ml: number;
+}
+
+export function getWaterHistory(days: number): Promise<DailyWaterPoint[]> {
+  return invoke("get_water_history", { days });
+}
+
+// ---------------------------------------------------------------------------
+// Diet plans
+// ---------------------------------------------------------------------------
+
+export type MealSlot = "breakfast" | "mid_morning" | "lunch" | "evening_snack" | "dinner";
+
+export interface DietPlanMeal {
+  slot: MealSlot;
+  dish_name: string;
+  description: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+export interface DietMealCandidate extends DietPlanMeal {
+  slot_label: string;
+  possible_conflicts: string[];
+}
+
+export interface DietPlanGenerationResult {
+  meals: DietMealCandidate[];
+  cuisine: string | null;
+  target_calories: number | null;
+  target_protein_g: number | null;
+  target_carbs_g: number | null;
+  target_fat_g: number | null;
+}
+
+export function generateDietPlan(cuisine?: string | null): Promise<DietPlanGenerationResult> {
+  return invoke("generate_diet_plan", { input: { cuisine: cuisine ?? null } });
+}
+
+export interface SaveDietPlanInput {
+  title: string;
+  cuisine: string | null;
+  target_calories: number | null;
+  target_protein_g: number | null;
+  target_carbs_g: number | null;
+  target_fat_g: number | null;
+  meals: DietPlanMeal[];
+}
+
+export function saveDietPlan(input: SaveDietPlanInput): Promise<number> {
+  return invoke("save_diet_plan", { input });
+}
+
+export interface SavedDietPlanMeal {
+  id: number;
+  diet_plan_id: number;
+  slot: MealSlot;
+  dish_name: string;
+  description: string | null;
+  calories: number | null;
+  protein_g: number | null;
+  carbs_g: number | null;
+  fat_g: number | null;
+  sort_order: number;
+}
+
+export interface SavedDietPlan {
+  id: number;
+  title: string;
+  cuisine: string | null;
+  target_calories: number | null;
+  target_protein_g: number | null;
+  target_carbs_g: number | null;
+  target_fat_g: number | null;
+  created_at: string;
+  meals: SavedDietPlanMeal[];
+}
+
+export function getSavedDietPlans(): Promise<SavedDietPlan[]> {
+  return invoke("get_saved_diet_plans");
+}
+
+export function deleteDietPlan(id: number): Promise<void> {
+  return invoke("delete_diet_plan", { id });
+}
+
+/** `base64Data` is the raw base64 body of a PDF generated client-side (jsPDF). */
+export function exportDietPlanPdf(destPath: string, base64Data: string): Promise<void> {
+  return invoke("export_diet_plan_pdf", { destPath, base64Data });
 }

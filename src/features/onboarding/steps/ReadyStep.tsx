@@ -2,7 +2,14 @@ import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GOALS } from "@/features/onboarding/constants";
-import { saveProfile, saveGoal, setGuardrails, type GoalType, type TargetResult } from "@/lib/api";
+import {
+  saveProfile,
+  saveGoal,
+  setGuardrails,
+  setAvoidedIngredients,
+  type GoalType,
+  type TargetResult,
+} from "@/lib/api";
 import type { BiometricsValue } from "@/features/onboarding/steps/BiometricsStep";
 
 interface ReadyStepProps {
@@ -11,6 +18,8 @@ interface ReadyStepProps {
   targetResult: TargetResult;
   diets: string[];
   allergies: string[];
+  cuisine: string;
+  avoidedIngredients: string[];
   targetWeightKg: number | null;
   onBack: () => void;
   onComplete: () => void;
@@ -22,6 +31,8 @@ export function ReadyStep({
   targetResult,
   diets,
   allergies,
+  cuisine,
+  avoidedIngredients,
   targetWeightKg,
   onBack,
   onComplete,
@@ -36,14 +47,17 @@ export function ReadyStep({
     setError(null);
     try {
       await saveProfile({
+        name: biometrics.name || null,
         sex: biometrics.sex,
         date_of_birth: `${new Date().getFullYear() - biometrics.ageYears}-01-01`,
         height_cm: biometrics.heightCm,
         weight_kg: biometrics.weightKg,
         activity_level: biometrics.activityLevel,
+        cuisine_preference: cuisine || null,
       });
       await saveGoal(goalType, targetResult.targets, targetWeightKg);
       await setGuardrails(diets, allergies);
+      await setAvoidedIngredients(avoidedIngredients);
       onComplete();
     } catch (e) {
       console.error(e);

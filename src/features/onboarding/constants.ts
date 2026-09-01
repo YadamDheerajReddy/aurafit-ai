@@ -29,6 +29,19 @@ export const DIET_PATTERNS = [
 
 export const ALLERGIES = ["Gluten", "Lactose", "Nuts", "Shellfish"] as const;
 
+export const CUISINES = [
+  "South Indian",
+  "North Indian",
+  "Punjabi",
+  "Gujarati",
+  "Bengali",
+  "Mediterranean",
+  "Continental",
+  "Chinese",
+  "Mexican",
+  "No preference",
+] as const;
+
 /**
  * Not exhaustive dietary science — just enough to surface a non-blocking
  * heads-up at onboarding, per the PRD's Dietary Guardrail Matrix ("conflicting

@@ -4,15 +4,17 @@ import { WelcomeStep } from "@/features/onboarding/steps/WelcomeStep";
 import { BiometricsStep, type BiometricsValue } from "@/features/onboarding/steps/BiometricsStep";
 import { GoalStep } from "@/features/onboarding/steps/GoalStep";
 import { GuardrailsStep } from "@/features/onboarding/steps/GuardrailsStep";
+import { PreferencesStep } from "@/features/onboarding/steps/PreferencesStep";
 import { ReadyStep } from "@/features/onboarding/steps/ReadyStep";
 import type { GoalType, TargetResult } from "@/lib/api";
 
-const STEPS = ["welcome", "biometrics", "goal", "guardrails", "ready"] as const;
+const STEPS = ["welcome", "biometrics", "goal", "guardrails", "preferences", "ready"] as const;
 type Step = (typeof STEPS)[number];
 
 export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>("welcome");
   const [biometrics, setBiometrics] = useState<BiometricsValue>({
+    name: "",
     sex: "male",
     ageYears: 0,
     heightCm: 0,
@@ -24,6 +26,8 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
   const [targetWeightKg, setTargetWeightKg] = useState("");
   const [diets, setDiets] = useState<string[]>([]);
   const [allergies, setAllergies] = useState<string[]>([]);
+  const [cuisine, setCuisine] = useState("");
+  const [avoidedIngredients, setAvoidedIngredients] = useState<string[]>([]);
 
   const stepIndex = STEPS.indexOf(step);
   const goTo = (s: Step) => setStep(s);
@@ -71,8 +75,21 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
               setDiets(d);
               setAllergies(a);
             }}
-            onNext={() => goTo("ready")}
+            onNext={() => goTo("preferences")}
             onBack={() => goTo("goal")}
+          />
+        )}
+
+        {step === "preferences" && (
+          <PreferencesStep
+            cuisine={cuisine}
+            avoidedIngredients={avoidedIngredients}
+            onChange={(c, a) => {
+              setCuisine(c);
+              setAvoidedIngredients(a);
+            }}
+            onNext={() => goTo("ready")}
+            onBack={() => goTo("guardrails")}
           />
         )}
 
@@ -83,8 +100,10 @@ export function Onboarding({ onComplete }: { onComplete: () => void }) {
             targetResult={targetResult}
             diets={diets}
             allergies={allergies}
+            cuisine={cuisine}
+            avoidedIngredients={avoidedIngredients}
             targetWeightKg={goalType !== "maintenance" && targetWeightKg ? Number(targetWeightKg) : null}
-            onBack={() => goTo("guardrails")}
+            onBack={() => goTo("preferences")}
             onComplete={onComplete}
           />
         )}

@@ -50,3 +50,29 @@ pub struct GeneratedRecipe {
 pub struct RecipeCandidates {
     pub recipes: Vec<GeneratedRecipe>,
 }
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MealSlot {
+    Breakfast,
+    MidMorning,
+    Lunch,
+    EveningSnack,
+    Dinner,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DietPlanMeal {
+    pub slot: MealSlot,
+    pub dish_name: String,
+    pub description: String,
+    pub calories: f32,
+    pub protein_g: f32,
+    pub carbs_g: f32,
+    pub fat_g: f32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct GeneratedDietPlan {
+    pub meals: Vec<DietPlanMeal>,
+}

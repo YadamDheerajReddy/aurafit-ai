@@ -2,10 +2,12 @@ use serde::Serialize;
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct ProfileRow {
+    pub name: Option<String>,
     pub sex: String,
     pub date_of_birth: String,
     pub height_cm: f64,
     pub activity_level: String,
+    pub cuisine_preference: Option<String>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]
@@ -110,4 +112,44 @@ pub struct SavedRecipe {
     #[serde(flatten)]
     pub recipe: RecipeRow,
     pub ingredients: Vec<RecipeIngredientRow>,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct WaterLogRow {
+    pub id: i64,
+    pub amount_ml: i64,
+    pub logged_at: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct DietPlanRow {
+    pub id: i64,
+    pub title: String,
+    pub cuisine: Option<String>,
+    pub target_calories: Option<i32>,
+    pub target_protein_g: Option<f64>,
+    pub target_carbs_g: Option<f64>,
+    pub target_fat_g: Option<f64>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, sqlx::FromRow)]
+pub struct DietPlanMealRow {
+    pub id: i64,
+    pub diet_plan_id: i64,
+    pub slot: String,
+    pub dish_name: String,
+    pub description: Option<String>,
+    pub calories: Option<f64>,
+    pub protein_g: Option<f64>,
+    pub carbs_g: Option<f64>,
+    pub fat_g: Option<f64>,
+    pub sort_order: i32,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SavedDietPlan {
+    #[serde(flatten)]
+    pub plan: DietPlanRow,
+    pub meals: Vec<DietPlanMealRow>,
 }

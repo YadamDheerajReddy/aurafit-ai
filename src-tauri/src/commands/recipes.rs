@@ -10,6 +10,7 @@ fn build_prompt(
     pantry_items: &[String],
     diets: &[String],
     allergies: &[String],
+    avoided: &[String],
     target_prep_minutes: Option<i32>,
     remaining_calories: Option<f64>,
     remaining_protein_g: Option<f64>,
@@ -31,6 +32,12 @@ fn build_prompt(
         prompt.push_str(&format!(
             " Every recipe MUST NOT contain any of these allergens or their derivatives: {}.",
             allergies.join(", ")
+        ));
+    }
+    if !avoided.is_empty() {
+        prompt.push_str(&format!(
+            " The user dislikes these ingredients and they must NOT appear in any recipe: {}.",
+            avoided.join(", ")
         ));
     }
     if let Some(minutes) = target_prep_minutes {
@@ -69,7 +76,7 @@ fn parse_and_validate(raw: &str) -> Result<Vec<GeneratedRecipe>, String> {
 /// instructions perfectly). Flags rather than silently discards, matching
 /// the PRD's "not a medical safety system" stance: the user still sees and
 /// judges the recipe themselves.
-fn flag_allergy_conflicts(recipe: &GeneratedRecipe, allergies: &[String]) -> Vec<String> {
+fn flag_allergy_conflicts(recipe: &GeneratedRecipe, allergies: &[String], avoided: &[String]) -> Vec<String> {
     let keywords: &[(&str, &[&str])] = &[
         ("Gluten", &["wheat", "flour", "bread", "pasta", "barley", "rye", "noodle", "breadcrumb"]),
         ("Lactose", &["milk", "cheese", "butter", "cream", "yogurt", "yoghurt", "whey"]),
@@ -84,7 +91,7 @@ fn flag_allergy_conflicts(recipe: &GeneratedRecipe, allergies: &[String]) -> Vec
         .collect::<Vec<_>>()
         .join(" ");
 
-    allergies
+    let mut flags: Vec<String> = allergies
         .iter()
         .filter(|allergy| {
             keywords
@@ -93,7 +100,16 @@ fn flag_allergy_conflicts(recipe: &GeneratedRecipe, allergies: &[String]) -> Vec
                 .is_some_and(|(_, words)| words.iter().any(|w| ingredient_text.contains(w)))
         })
         .cloned()
-        .collect()
+        .collect();
+
+    for item in avoided {
+        let needle = item.to_lowercase();
+        if !needle.is_empty() && ingredient_text.contains(&needle) {
+            flags.push(item.clone());
+        }
+    }
+
+    flags
 }
 
 #[derive(Debug, Serialize)]
@@ -151,6 +167,11 @@ pub async fn generate_recipes(
         .map(|g| g.value.clone())
         .collect();
 
+    let avoided: Vec<String> = sqlx::query_scalar("SELECT name FROM avoided_ingredients")
+        .fetch_all(pool.inner())
+        .await
+        .map_err(|e| e.to_string())?;
+
     let target_calories: Option<i32> = sqlx::query_scalar(
         "SELECT target_calories FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
     )
@@ -179,6 +200,7 @@ pub async fn generate_recipes(
         &pantry_items,
         &diets,
         &allergies,
+        &avoided,
         input.target_prep_minutes,
         remaining_calories,
         remaining_protein,
@@ -203,7 +225,7 @@ pub async fn generate_recipes(
     let candidates = recipes
         .into_iter()
         .map(|recipe| {
-            let possible_allergens = flag_allergy_conflicts(&recipe, &allergies);
+            let possible_allergens = flag_allergy_conflicts(&recipe, &allergies, &avoided);
             RecipeCandidate { recipe, possible_allergens }
         })
         .collect();
@@ -331,24 +353,31 @@ mod tests {
     #[test]
     fn flags_matching_allergen() {
         let recipe = recipe_with_ingredients(&["chicken breast", "whole wheat flour", "olive oil"]);
-        let flags = flag_allergy_conflicts(&recipe, &["Gluten".to_string()]);
+        let flags = flag_allergy_conflicts(&recipe, &["Gluten".to_string()], &[]);
         assert_eq!(flags, vec!["Gluten".to_string()]);
     }
 
     #[test]
     fn no_false_flag_when_clean() {
         let recipe = recipe_with_ingredients(&["chicken breast", "white rice", "broccoli"]);
-        let flags = flag_allergy_conflicts(&recipe, &["Gluten".to_string(), "Nuts".to_string()]);
+        let flags = flag_allergy_conflicts(&recipe, &["Gluten".to_string(), "Nuts".to_string()], &[]);
         assert!(flags.is_empty());
     }
 
     #[test]
     fn flags_multiple_allergens_independently() {
         let recipe = recipe_with_ingredients(&["cheddar cheese", "roasted almonds"]);
-        let flags = flag_allergy_conflicts(&recipe, &["Lactose".to_string(), "Nuts".to_string(), "Shellfish".to_string()]);
+        let flags = flag_allergy_conflicts(&recipe, &["Lactose".to_string(), "Nuts".to_string(), "Shellfish".to_string()], &[]);
         assert_eq!(flags.len(), 2);
         assert!(flags.contains(&"Lactose".to_string()));
         assert!(flags.contains(&"Nuts".to_string()));
+    }
+
+    #[test]
+    fn flags_avoided_ingredient() {
+        let recipe = recipe_with_ingredients(&["chicken breast", "drumstick", "rice"]);
+        let flags = flag_allergy_conflicts(&recipe, &[], &["drumstick".to_string()]);
+        assert_eq!(flags, vec!["drumstick".to_string()]);
     }
 
     #[test]

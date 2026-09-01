@@ -1,14 +1,21 @@
-import { LayoutDashboard, NotebookPen, ChefHat, TrendingUp, Settings, ShieldCheck, Moon, Sun } from "lucide-react";
+import { LayoutDashboard, NotebookPen, ChefHat, CalendarDays, TrendingUp, Settings, ShieldCheck, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AuraMark } from "@/components/AuraMark";
 import { useTheme } from "@/lib/theme";
 
-export type NavDestination = "dashboard" | "log-meal" | "recipes" | "progress" | "settings";
+export type NavDestination =
+  | "dashboard"
+  | "log-meal"
+  | "recipes"
+  | "diet-plan"
+  | "progress"
+  | "settings";
 
 const ITEMS: { id: NavDestination; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "log-meal", label: "Log Meal", icon: NotebookPen },
   { id: "recipes", label: "Recipes", icon: ChefHat },
+  { id: "diet-plan", label: "Diet Plan", icon: CalendarDays },
   { id: "progress", label: "Progress", icon: TrendingUp },
   { id: "settings", label: "Settings", icon: Settings },
 ];

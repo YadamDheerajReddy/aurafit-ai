@@ -1,7 +1,9 @@
 pub mod analytics;
 pub mod biometrics;
+pub mod diet_plan;
 pub mod export;
 pub mod logging;
 pub mod lookup;
 pub mod meal_estimate;
 pub mod recipes;
+pub mod water;

@@ -5,6 +5,7 @@ import { Onboarding } from "@/features/onboarding/Onboarding";
 import { Dashboard } from "@/features/dashboard/Dashboard";
 import { LogMealPage } from "@/features/logging/LogMealPage";
 import { RecipesPage } from "@/features/recipes/RecipesPage";
+import { DietPlanPage } from "@/features/dietplan/DietPlanPage";
 import { ProgressPage } from "@/features/progress/ProgressPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { getUserState, type UserState } from "@/lib/api";
@@ -46,6 +47,7 @@ function App() {
         {nav === "dashboard" && <Dashboard userState={userState} onDataChanged={refresh} />}
         {nav === "log-meal" && <LogMealPage onLogged={() => setNav("dashboard")} />}
         {nav === "recipes" && <RecipesPage />}
+        {nav === "diet-plan" && <DietPlanPage userState={userState} />}
         {nav === "progress" && (
           <ProgressPage targetWeightKg={userState.active_goal?.target_weight_kg ?? null} />
         )}

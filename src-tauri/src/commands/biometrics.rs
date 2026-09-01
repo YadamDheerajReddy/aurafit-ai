@@ -76,11 +76,13 @@ pub fn calculate_targets(request: TargetRequest) -> Result<TargetResult, String>
 
 #[derive(Debug, Deserialize)]
 pub struct SaveProfileInput {
+    pub name: Option<String>,
     pub sex: Sex,
     pub date_of_birth: String,
     pub height_cm: f64,
     pub weight_kg: f64,
     pub activity_level: ActivityLevel,
+    pub cuisine_preference: Option<String>,
 }
 
 #[tauri::command]
@@ -88,20 +90,27 @@ pub async fn save_profile(
     pool: State<'_, SqlitePool>,
     input: SaveProfileInput,
 ) -> Result<(), String> {
+    let name = input.name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
+    let cuisine = input.cuisine_preference.filter(|c| !c.is_empty());
+
     sqlx::query(
-        "INSERT INTO user_profile (id, sex, date_of_birth, height_cm, activity_level)
-         VALUES (1, ?, ?, ?, ?)
+        "INSERT INTO user_profile (id, name, sex, date_of_birth, height_cm, activity_level, cuisine_preference)
+         VALUES (1, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
            sex = excluded.sex,
            date_of_birth = excluded.date_of_birth,
            height_cm = excluded.height_cm,
            activity_level = excluded.activity_level,
+           cuisine_preference = excluded.cuisine_preference,
            updated_at = datetime('now')",
     )
+    .bind(&name)
     .bind(sex_to_str(input.sex))
     .bind(&input.date_of_birth)
     .bind(input.height_cm)
     .bind(activity_level_to_str(input.activity_level))
+    .bind(&cuisine)
     .execute(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -193,6 +202,64 @@ pub async fn set_guardrails(
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SetAvoidedIngredientsInput {
+    pub ingredients: Vec<String>,
+}
+
+/// Free-text personal dislikes (e.g. "drumstick") — distinct from the fixed
+/// allergy list, and enforced the same way: injected into every recipe/diet
+/// plan generation prompt, with a post-generation keyword flag as backup.
+#[tauri::command]
+pub async fn set_avoided_ingredients(
+    pool: State<'_, SqlitePool>,
+    input: SetAvoidedIngredientsInput,
+) -> Result<(), String> {
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+
+    sqlx::query("DELETE FROM avoided_ingredients")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    for ingredient in input
+        .ingredients
+        .iter()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
+        sqlx::query("INSERT OR IGNORE INTO avoided_ingredients (name) VALUES (?)")
+            .bind(ingredient)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetWaterGoalInput {
+    pub goal_ml: i32,
+}
+
+#[tauri::command]
+pub async fn set_water_goal(
+    pool: State<'_, SqlitePool>,
+    input: SetWaterGoalInput,
+) -> Result<(), String> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value) VALUES ('water_goal_ml', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(input.goal_ml.to_string())
+    .execute(pool.inner())
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize)]
 pub struct UserState {
     pub onboarded: bool,
@@ -200,6 +267,8 @@ pub struct UserState {
     pub latest_weight_kg: Option<f64>,
     pub active_goal: Option<GoalRow>,
     pub guardrails: Vec<GuardrailRow>,
+    pub avoided_ingredients: Vec<String>,
+    pub water_goal_ml: Option<i32>,
 }
 
 /// Read-back for app launch: is onboarding already complete, and if so,
@@ -207,7 +276,7 @@ pub struct UserState {
 #[tauri::command]
 pub async fn get_user_state(pool: State<'_, SqlitePool>) -> Result<UserState, String> {
     let profile = sqlx::query_as::<_, ProfileRow>(
-        "SELECT sex, date_of_birth, height_cm, activity_level FROM user_profile WHERE id = 1",
+        "SELECT name, sex, date_of_birth, height_cm, activity_level, cuisine_preference FROM user_profile WHERE id = 1",
     )
     .fetch_optional(pool.inner())
     .await
@@ -235,6 +304,19 @@ pub async fn get_user_state(pool: State<'_, SqlitePool>) -> Result<UserState, St
     .await
     .map_err(|e| e.to_string())?;
 
+    let avoided_ingredients: Vec<String> =
+        sqlx::query_scalar("SELECT name FROM avoided_ingredients ORDER BY name")
+            .fetch_all(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+
+    let water_goal_raw: Option<String> =
+        sqlx::query_scalar("SELECT value FROM app_settings WHERE key = 'water_goal_ml'")
+            .fetch_optional(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+    let water_goal_ml = water_goal_raw.and_then(|v| v.parse::<i32>().ok());
+
     let onboarded = profile.is_some() && active_goal.is_some();
 
     Ok(UserState {
@@ -243,5 +325,7 @@ pub async fn get_user_state(pool: State<'_, SqlitePool>) -> Result<UserState, St
         latest_weight_kg: latest_weight.map(|w| w.weight_kg),
         active_goal,
         guardrails,
+        avoided_ingredients,
+        water_goal_ml,
     })
 }

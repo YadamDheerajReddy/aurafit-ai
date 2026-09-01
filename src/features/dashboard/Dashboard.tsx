@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShieldCheck, UtensilsCrossed, Scale, Trash2, Loader2 } from "lucide-react";
+import { ShieldCheck, UtensilsCrossed, Scale, Trash2, Loader2, Droplets, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,16 @@ import {
   deleteFoodLog,
   getProgressCharts,
   getTodaysLog,
+  getTodaysWater,
+  logWater,
   saveWeightEntry,
   type FoodLogEntry,
+  type TodaysWater,
   type UserState,
   type WeightPoint,
 } from "@/lib/api";
+
+const QUICK_ADD_ML = [150, 250, 500];
 
 const TODAY = new Date().toLocaleDateString(undefined, {
   weekday: "short",
@@ -39,11 +44,29 @@ export function Dashboard({
   const [weightInput, setWeightInput] = useState("");
   const [savingWeight, setSavingWeight] = useState(false);
   const [weightWarning, setWeightWarning] = useState<string | null>(null);
+  const [water, setWater] = useState<TodaysWater | null>(null);
+  const [loggingWater, setLoggingWater] = useState(false);
 
   async function refresh() {
-    const [log, progress] = await Promise.all([getTodaysLog(), getProgressCharts(30)]);
+    const [log, progress, todaysWater] = await Promise.all([
+      getTodaysLog(),
+      getProgressCharts(30),
+      getTodaysWater(),
+    ]);
     setTodaysLog(log);
     setWeightTrend(progress.weight_trend);
+    setWater(todaysWater);
+  }
+
+  async function handleAddWater(amountMl: number) {
+    setLoggingWater(true);
+    try {
+      await logWater(amountMl);
+      const todaysWater = await getTodaysWater();
+      setWater(todaysWater);
+    } finally {
+      setLoggingWater(false);
+    }
   }
 
   useEffect(() => {
@@ -199,6 +222,48 @@ export function Dashboard({
           )}
         </CardContent>
       </Card>
+
+      {userState.water_goal_ml && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Droplets className="size-4 text-blue-400" />
+              Water intake
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-bold text-foreground">
+                {((water?.total_ml ?? 0) / 1000).toFixed(2)}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                / {(userState.water_goal_ml / 1000).toFixed(1)} L
+              </span>
+            </div>
+            <ProgressBar
+              value={water?.total_ml ?? 0}
+              max={userState.water_goal_ml}
+              className="h-2"
+              barClassName="bg-blue-400"
+            />
+            <div className="flex flex-wrap gap-2">
+              {QUICK_ADD_ML.map((ml) => (
+                <Button
+                  key={ml}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleAddWater(ml)}
+                  disabled={loggingWater}
+                  className="gap-1"
+                >
+                  <Plus className="size-3.5" />
+                  {ml}ml
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -3,6 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   CheckCircle2,
   Download,
+  Droplets,
   Loader2,
   PenLine,
   ShieldCheck,
@@ -10,12 +11,13 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ModelManagementCard } from "@/features/settings/ModelManagementCard";
 import { EditProfileModal } from "@/features/settings/EditProfileModal";
 import { UpdateCheckCard } from "@/features/settings/UpdateCheckCard";
 import { GOALS } from "@/features/onboarding/constants";
-import { exportData, type UserState } from "@/lib/api";
+import { exportData, setWaterGoal, type UserState } from "@/lib/api";
 
 export function SettingsPage({
   userState,
@@ -28,11 +30,27 @@ export function SettingsPage({
   const [exportedTo, setExportedTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [waterGoalInput, setWaterGoalInput] = useState(
+    userState.water_goal_ml ? String(userState.water_goal_ml) : ""
+  );
+  const [savingWaterGoal, setSavingWaterGoal] = useState(false);
 
   const goal = userState.active_goal;
   const goalLabel = GOALS.find((g) => g.value === goal?.goal_type)?.label ?? "—";
   const diets = userState.guardrails.filter((g) => g.constraint_type === "diet");
   const allergies = userState.guardrails.filter((g) => g.constraint_type === "allergy");
+
+  async function handleSaveWaterGoal() {
+    const ml = Number(waterGoalInput);
+    if (!ml || ml <= 0) return;
+    setSavingWaterGoal(true);
+    try {
+      await setWaterGoal(ml);
+      onDataChanged();
+    } finally {
+      setSavingWaterGoal(false);
+    }
+  }
 
   async function handleExport() {
     setError(null);
@@ -58,7 +76,9 @@ export function SettingsPage({
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-8 py-8">
       <div>
-        <h1 className="font-display text-2xl font-bold text-foreground">Settings</h1>
+        <h1 className="font-display text-2xl font-bold text-foreground">
+          {userState.profile?.name ? `Settings — ${userState.profile.name}` : "Settings"}
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">Local &amp; Private, and your data.</p>
       </div>
 
@@ -74,9 +94,17 @@ export function SettingsPage({
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div>
-            <p className="text-xs text-muted-foreground">Goal</p>
-            <p className="text-sm font-medium text-foreground">{goalLabel}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Goal</p>
+              <p className="text-sm font-medium text-foreground">{goalLabel}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cuisine preference</p>
+              <p className="text-sm font-medium text-foreground">
+                {userState.profile?.cuisine_preference || "None set"}
+              </p>
+            </div>
           </div>
           <div>
             <p className="mb-1.5 text-xs text-muted-foreground">Dietary guardrails</p>
@@ -97,10 +125,54 @@ export function SettingsPage({
               </div>
             )}
           </div>
+          <div>
+            <p className="mb-1.5 text-xs text-muted-foreground">Always avoid</p>
+            {userState.avoided_ingredients.length === 0 ? (
+              <p className="text-sm text-muted-foreground">None set.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {userState.avoided_ingredients.map((item) => (
+                  <Badge key={item} variant="secondary">
+                    {item}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Guardrails reduce diet-conflicting suggestions but aren't a substitute for reading
             ingredient labels.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Droplets className="size-4 text-blue-400" />
+            Daily water goal
+          </CardTitle>
+          <CardDescription>Tracked from the Dashboard.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex items-center gap-2">
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder="e.g. 2500"
+            value={waterGoalInput}
+            onChange={(e) => setWaterGoalInput(e.target.value)}
+            className="w-40 font-mono"
+          />
+          <span className="text-sm text-muted-foreground">ml / day</span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleSaveWaterGoal}
+            disabled={savingWaterGoal || !waterGoalInput}
+            className="ml-auto"
+          >
+            {savingWaterGoal ? <Loader2 className="size-4 animate-spin" /> : "Save"}
+          </Button>
         </CardContent>
       </Card>
 

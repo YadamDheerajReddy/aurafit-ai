@@ -28,6 +28,11 @@ const MIGRATIONS: &[MigrationFile] = &[
         description: "add_target_weight",
         sql: include_str!("./sql/0004_add_target_weight.sql"),
     },
+    MigrationFile {
+        version: 5,
+        description: "water_diet_plans_profile",
+        sql: include_str!("./sql/0005_water_diet_plans_profile.sql"),
+    },
 ];
 
 /// Applies pending migrations in order, tracked in `schema_migrations`

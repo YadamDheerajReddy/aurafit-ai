@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import type { DailyMacroPoint } from "@/lib/api";
+import { ChartAccessibleTable } from "@/components/ChartAccessibleTable";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -32,7 +33,16 @@ export function MacroComplianceChart({
 
   return (
     <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ChartAccessibleTable
+        caption="Daily calories versus target"
+        columns={["Date", "Calories", "Target"]}
+        rows={data.map((d) => [
+          formatDate(d.date),
+          Math.round(d.calories),
+          targetCalories ? Math.round(targetCalories) : "—",
+        ])}
+      />
+      <ResponsiveContainer width="100%" height="100%" aria-hidden="true">
         <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
           <XAxis

@@ -119,6 +119,7 @@ pub async fn save_profile(
 pub struct SaveGoalInput {
     pub goal_type: GoalType,
     pub targets: MacroTargets,
+    pub target_weight_kg: Option<f64>,
 }
 
 #[tauri::command]
@@ -132,8 +133,8 @@ pub async fn save_goal(pool: State<'_, SqlitePool>, input: SaveGoalInput) -> Res
 
     sqlx::query(
         "INSERT INTO goals
-           (goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, 1)",
+           (goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
     )
     .bind(goal_type_to_str(input.goal_type))
     .bind(input.targets.calories)
@@ -141,6 +142,7 @@ pub async fn save_goal(pool: State<'_, SqlitePool>, input: SaveGoalInput) -> Res
     .bind(input.targets.carbs_g)
     .bind(input.targets.fat_g)
     .bind(input.targets.fiber_g)
+    .bind(input.target_weight_kg)
     .execute(&mut *tx)
     .await
     .map_err(|e| e.to_string())?;
@@ -219,7 +221,7 @@ pub async fn get_user_state(pool: State<'_, SqlitePool>) -> Result<UserState, St
     .map_err(|e| e.to_string())?;
 
     let active_goal = sqlx::query_as::<_, GoalRow>(
-        "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g
+        "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg
          FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
     )
     .fetch_optional(pool.inner())

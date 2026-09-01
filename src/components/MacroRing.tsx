@@ -20,7 +20,7 @@ export function MacroRing({ value, max, size = 88, overBudget = false }: MacroRi
   const isOver = overBudget && value > max;
 
   return (
-    <div style={{ width: size, height: size }} className="relative shrink-0">
+    <div style={{ width: size, height: size }} className="relative shrink-0" aria-hidden="true">
       <svg width={0} height={0}>
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">

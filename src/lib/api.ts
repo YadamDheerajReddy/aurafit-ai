@@ -44,8 +44,14 @@ export function saveProfile(input: SaveProfileInput): Promise<void> {
   return invoke("save_profile", { input });
 }
 
-export function saveGoal(goalType: GoalType, targets: MacroTargets): Promise<void> {
-  return invoke("save_goal", { input: { goal_type: goalType, targets } });
+export function saveGoal(
+  goalType: GoalType,
+  targets: MacroTargets,
+  targetWeightKg?: number | null
+): Promise<void> {
+  return invoke("save_goal", {
+    input: { goal_type: goalType, targets, target_weight_kg: targetWeightKg ?? null },
+  });
 }
 
 export function setGuardrails(diets: string[], allergies: string[]): Promise<void> {
@@ -68,6 +74,7 @@ export interface UserState {
     target_carbs_g: number;
     target_fat_g: number;
     target_fiber_g: number;
+    target_weight_kg: number | null;
   } | null;
   guardrails: { constraint_type: "diet" | "allergy"; value: string }[];
 }

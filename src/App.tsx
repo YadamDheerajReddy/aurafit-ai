@@ -45,8 +45,8 @@ function App() {
       {nav === "dashboard" && <Dashboard userState={userState} onDataChanged={refresh} />}
       {nav === "log-meal" && <LogMealPage onLogged={() => setNav("dashboard")} />}
       {nav === "recipes" && <RecipesPage />}
-      {nav === "progress" && <ProgressPage />}
-      {nav === "settings" && <SettingsPage />}
+      {nav === "progress" && <ProgressPage targetWeightKg={userState.active_goal?.target_weight_kg ?? null} />}
+      {nav === "settings" && <SettingsPage userState={userState} onDataChanged={refresh} />}
     </div>
   );
 }

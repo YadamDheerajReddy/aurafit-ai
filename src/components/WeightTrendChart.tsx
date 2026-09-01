@@ -9,6 +9,7 @@ import {
   YAxis,
 } from "recharts";
 import type { WeightPoint } from "@/lib/api";
+import { ChartAccessibleTable } from "@/components/ChartAccessibleTable";
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -34,7 +35,12 @@ export function WeightTrendChart({ data }: { data: WeightPoint[] }) {
 
   return (
     <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ChartAccessibleTable
+        caption="Weight trend over time"
+        columns={["Date", "Weight (kg)"]}
+        rows={data.map((d) => [formatDate(d.date), d.weight_kg.toFixed(1)])}
+      />
+      <ResponsiveContainer width="100%" height="100%" aria-hidden="true">
         <AreaChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">

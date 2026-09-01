@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { GOALS } from "@/features/onboarding/constants";
 import { saveProfile, saveGoal, setGuardrails, type GoalType, type TargetResult } from "@/lib/api";
 import type { BiometricsValue } from "@/features/onboarding/steps/BiometricsStep";
@@ -11,6 +13,7 @@ interface ReadyStepProps {
   targetResult: TargetResult;
   diets: string[];
   allergies: string[];
+  initialTargetWeightKg?: number | null;
   onBack: () => void;
   onComplete: () => void;
 }
@@ -21,11 +24,15 @@ export function ReadyStep({
   targetResult,
   diets,
   allergies,
+  initialTargetWeightKg,
   onBack,
   onComplete,
 }: ReadyStepProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [targetWeight, setTargetWeight] = useState(
+    initialTargetWeightKg ? String(initialTargetWeightKg) : ""
+  );
 
   const goal = GOALS.find((g) => g.value === goalType)!;
 
@@ -40,7 +47,11 @@ export function ReadyStep({
         weight_kg: biometrics.weightKg,
         activity_level: biometrics.activityLevel,
       });
-      await saveGoal(goalType, targetResult.targets);
+      await saveGoal(
+        goalType,
+        targetResult.targets,
+        targetWeight ? Number(targetWeight) : null
+      );
       await setGuardrails(diets, allergies);
       onComplete();
     } catch (e) {
@@ -90,6 +101,24 @@ export function ReadyStep({
           </div>
         </div>
       </div>
+
+      {goalType !== "maintenance" && (
+        <div className="grid w-full max-w-sm gap-2 text-left">
+          <Label htmlFor="target-weight">Target weight, kg (optional)</Label>
+          <Input
+            id="target-weight"
+            type="number"
+            inputMode="decimal"
+            placeholder="e.g. 75"
+            value={targetWeight}
+            onChange={(e) => setTargetWeight(e.target.value)}
+            className="font-mono"
+          />
+          <p className="text-xs text-muted-foreground">
+            Set this to see a projected goal-completion date on your Progress chart.
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 

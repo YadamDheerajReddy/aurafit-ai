@@ -16,6 +16,7 @@ pub struct GoalRow {
     pub target_carbs_g: f64,
     pub target_fat_g: f64,
     pub target_fiber_g: f64,
+    pub target_weight_kg: Option<f64>,
 }
 
 #[derive(Debug, Serialize, sqlx::FromRow)]

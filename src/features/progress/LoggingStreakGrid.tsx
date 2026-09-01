@@ -22,7 +22,7 @@ export function LoggingStreakGrid({ loggedDates }: { loggedDates: string[] }) {
 
   return (
     <div>
-      <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-14">
+      <div className="grid grid-cols-7 gap-1.5 sm:grid-cols-14" aria-hidden="true">
         {days.map((day) => (
           <div
             key={day.key}
@@ -35,6 +35,14 @@ export function LoggingStreakGrid({ loggedDates }: { loggedDates: string[] }) {
         ))}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">Last 42 days · each square is one day</p>
+      <p className="sr-only">
+        {days.filter((d) => d.isLogged).length} of {days.length} days logged in the last 42 days:{" "}
+        {days
+          .filter((d) => d.isLogged)
+          .map((d) => d.label)
+          .join(", ") || "none"}
+        .
+      </p>
     </div>
   );
 }

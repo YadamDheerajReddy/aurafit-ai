@@ -42,7 +42,7 @@ pub async fn export_data(
     .map_err(|e| e.to_string())?;
 
     let goals = sqlx::query_as::<_, GoalRow>(
-        "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g
+        "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg
          FROM goals ORDER BY id ASC",
     )
     .fetch_all(pool.inner())

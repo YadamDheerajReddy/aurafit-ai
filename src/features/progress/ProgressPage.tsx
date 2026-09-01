@@ -1,13 +1,39 @@
 import { useEffect, useState } from "react";
-import { Flame, Loader2, TrendingDown, TrendingUp } from "lucide-react";
+import { Flame, Loader2, Target, TrendingDown, TrendingUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { WeightTrendChart } from "@/components/WeightTrendChart";
 import { MacroComplianceChart } from "@/features/progress/MacroComplianceChart";
 import { LoggingStreakGrid } from "@/features/progress/LoggingStreakGrid";
 import { getProgressCharts, type ProgressData } from "@/lib/api";
 
-export function ProgressPage() {
+function projectGoalDate(weightTrend: { date: string; weight_kg: number }[], targetWeightKg: number | null) {
+  if (!targetWeightKg || weightTrend.length < 2) return null;
+
+  const recent = weightTrend.slice(-14);
+  const first = recent[0];
+  const last = recent.at(-1)!;
+  const days = (new Date(last.date).getTime() - new Date(first.date).getTime()) / 86_400_000;
+  if (days < 3) return null;
+
+  const velocityPerDay = (last.weight_kg - first.weight_kg) / days;
+  const remaining = targetWeightKg - last.weight_kg;
+
+  // Wrong direction, or already there — no meaningful projection.
+  if (Math.abs(velocityPerDay) < 0.005 || Math.sign(remaining) !== Math.sign(velocityPerDay)) {
+    return null;
+  }
+
+  const daysToGoal = remaining / velocityPerDay;
+  if (daysToGoal <= 0 || daysToGoal > 365 * 2) return null;
+
+  const projected = new Date(last.date);
+  projected.setDate(projected.getDate() + Math.round(daysToGoal));
+  return projected;
+}
+
+export function ProgressPage({ targetWeightKg }: { targetWeightKg: number | null }) {
   const [data, setData] = useState<ProgressData | null>(null);
 
   useEffect(() => {
@@ -29,6 +55,7 @@ export function ProgressPage() {
       ? weights.slice(-7).reduce((a, b) => a + b, 0) / Math.min(7, weights.length)
       : undefined;
   const trend = weights.length >= 2 ? weights.at(-1)! - weights[0] : 0;
+  const projectedGoalDate = projectGoalDate(data.weight_trend, targetWeightKg);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-8 py-8">
@@ -55,6 +82,25 @@ export function ProgressPage() {
             />
           </div>
           <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base">Weight trend</CardTitle>
+              {targetWeightKg &&
+                (projectedGoalDate ? (
+                  <Badge variant="outline" className="gap-1.5">
+                    <Target className="size-3.5" />
+                    Est. goal date:{" "}
+                    {projectedGoalDate.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    Log a few more consistent weigh-ins to project a goal date.
+                  </span>
+                ))}
+            </CardHeader>
             <CardContent>
               <WeightTrendChart data={data.weight_trend} />
             </CardContent>

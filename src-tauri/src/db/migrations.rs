@@ -23,6 +23,11 @@ const MIGRATIONS: &[MigrationFile] = &[
         description: "add_ai_text_source",
         sql: include_str!("./sql/0003_add_ai_text_source.sql"),
     },
+    MigrationFile {
+        version: 4,
+        description: "add_target_weight",
+        sql: include_str!("./sql/0004_add_target_weight.sql"),
+    },
 ];
 
 /// Applies pending migrations in order, tracked in `schema_migrations`

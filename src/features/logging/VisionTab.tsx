@@ -21,6 +21,15 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
   const [rows, setRows] = useState<VerificationRow[]>([]);
   const [manualFallback, setManualFallback] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    if (stage !== "analyzing") return;
+    setElapsedSeconds(0);
+    const interval = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [stage]);
 
   async function refreshOllamaStatus() {
     setCheckingOllama(true);
@@ -39,6 +48,7 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
     setPhotoPreview(dataUrl);
     setStage("analyzing");
     setManualFallback(false);
+    setAnalyzeError(null);
 
     try {
       const result = await analyzeMealPhoto(dataUrl);
@@ -63,9 +73,9 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
       setStage("verifying");
     } catch (e) {
       console.error(e);
+      setAnalyzeError(String(e));
       await refreshOllamaStatus();
       setStage("idle");
-      setPhotoPreview(null);
     }
   }
 
@@ -124,7 +134,30 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
   }
 
   if (stage === "idle") {
-    return <PhotoDropZone onCapture={handleCapture} />;
+    return (
+      <div className="flex flex-col gap-3">
+        {analyzeError && (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
+            <div className="flex-1">
+              <p className="text-sm text-foreground">{analyzeError}</p>
+              {photoPreview && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 gap-1.5"
+                  onClick={() => handleCapture(photoPreview)}
+                >
+                  <RotateCcw className="size-3.5" />
+                  Try that photo again
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+        <PhotoDropZone onCapture={handleCapture} />
+      </div>
+    );
   }
 
   if (stage === "analyzing") {
@@ -138,7 +171,15 @@ export function VisionTab({ onLogged }: { onLogged: () => void }) {
           />
         )}
         <Loader2 className="size-6 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Analyzing your plate…</p>
+        <p className="text-sm text-muted-foreground">
+          Analyzing your plate… ({elapsedSeconds}s)
+        </p>
+        {elapsedSeconds > 20 && (
+          <p className="max-w-xs text-xs text-muted-foreground">
+            Still working — local AI on CPU or a memory-constrained system can
+            take a while. Up to 3 minutes before this gives up.
+          </p>
+        )}
       </div>
     );
   }

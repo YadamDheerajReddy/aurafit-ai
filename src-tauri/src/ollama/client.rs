@@ -1,7 +1,18 @@
 use serde_json::json;
+use std::time::Duration;
 
 /// The only network socket AuraFit AI ever opens (TRD, 01 — Trust Boundary).
 const OLLAMA_BASE_URL: &str = "http://localhost:11434";
+
+/// A health check should never hang the UI (App Flow doc, 07 — the "Ollama
+/// isn't running" banner needs to appear promptly, not after a long stall).
+const STATUS_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// CPU-only / RAM-constrained inference can legitimately take minutes, not
+/// seconds — this bounds it so a genuinely stuck request still surfaces a
+/// clear error instead of an indefinite spinner (TRD's <30s target assumes
+/// comfortable headroom, which not every machine has).
+const ANALYZE_TIMEOUT: Duration = Duration::from_secs(180);
 // TRD 4.1 names llama3.2-vision:11b, but that needs ~8GB+ VRAM/RAM headroom
 // this dev machine doesn't have. qwen2.5vl:7b (~6GB) is a deliberate
 // lighter-hardware substitution — same request/response contract, same
@@ -30,6 +41,7 @@ impl OllamaClient {
         let Ok(resp) = self
             .http
             .get(format!("{OLLAMA_BASE_URL}/api/tags"))
+            .timeout(STATUS_TIMEOUT)
             .send()
             .await
         else {
@@ -94,9 +106,21 @@ impl OllamaClient {
             .http
             .post(format!("{OLLAMA_BASE_URL}/api/chat"))
             .json(&body)
+            .timeout(ANALYZE_TIMEOUT)
             .send()
             .await
-            .map_err(|e| format!("Ollama request failed: {e}"))?;
+            .map_err(|e| {
+                if e.is_timeout() {
+                    format!(
+                        "Ollama didn't respond within {}s. This usually means the model is \
+                         running but your system is low on free RAM (swapping to disk is slow) \
+                         — try closing other apps and retrying.",
+                        ANALYZE_TIMEOUT.as_secs()
+                    )
+                } else {
+                    format!("Ollama request failed: {e}")
+                }
+            })?;
 
         if !resp.status().is_success() {
             return Err(format!("Ollama returned HTTP {}", resp.status()));

@@ -4,6 +4,12 @@ All notable changes to AuraFit AI are documented here. The section for the
 current tag is what users see in-app under Settings → Updates when a new
 version is available.
 
+## v0.3.1
+
+- Fixed a blurry, pixelated logo in the installer wizard (Windows/macOS) —
+  it's now drawn crisply at every size instead of being downscaled from a
+  much larger image.
+
 ## v0.3.0
 
 - **Multi-profile support** — up to 3 profiles per device, Netflix-style.

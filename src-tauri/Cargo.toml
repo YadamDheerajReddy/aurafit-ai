@@ -1,6 +1,6 @@
 [package]
 name = "aurafit"
-version = "0.3.0"
+version = "0.3.1"
 description = "AuraFit AI — a privacy-first, local-only calorie and body-transformation tracker"
 authors = ["AuraFit AI"]
 edition = "2021"

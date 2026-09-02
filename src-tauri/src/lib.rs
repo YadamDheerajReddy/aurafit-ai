@@ -26,20 +26,44 @@ pub fn run() {
             // Runs synchronously here, before the webview loads, so the
             // schema is guaranteed to exist before any frontend code touches
             // the file.
-            let pool = tauri::async_runtime::block_on(async {
+            let (pool, initial_profile_id) = tauri::async_runtime::block_on(async {
                 let pool = db::pool::connect(&db_path)
                     .await
                     .expect("failed to open database");
                 db::migrations::run(&pool, &db_path)
                     .await
                     .expect("failed to run migrations");
-                pool
+
+                // Best-effort default: whichever profile was used most
+                // recently. The frontend still shows a profile picker (skipped
+                // only when there's exactly one profile) and calls
+                // switch_profile explicitly once the user picks, so this is
+                // only what's active for the brief window before that.
+                let most_recent: i64 = sqlx::query_scalar(
+                    "SELECT id FROM profiles ORDER BY last_active_at DESC, id ASC LIMIT 1",
+                )
+                .fetch_optional(&pool)
+                .await
+                .ok()
+                .flatten()
+                .unwrap_or(1);
+
+                (pool, most_recent)
             });
 
             app.manage(pool);
+            app.manage(commands::profiles::ActiveProfile(std::sync::Mutex::new(
+                initial_profile_id,
+            )));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::profiles::get_profiles,
+            commands::profiles::get_active_profile_id,
+            commands::profiles::create_profile,
+            commands::profiles::update_profile,
+            commands::profiles::switch_profile,
+            commands::profiles::delete_profile,
             commands::biometrics::calculate_targets,
             commands::biometrics::save_profile,
             commands::biometrics::save_goal,

@@ -38,6 +38,11 @@ const MIGRATIONS: &[MigrationFile] = &[
         description: "diet_plan_recipes",
         sql: include_str!("./sql/0006_diet_plan_recipes.sql"),
     },
+    MigrationFile {
+        version: 7,
+        description: "profiles",
+        sql: include_str!("./sql/0007_profiles.sql"),
+    },
 ];
 
 /// Applies pending migrations in order, tracked in `schema_migrations`

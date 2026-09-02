@@ -2,6 +2,7 @@ import { LayoutDashboard, NotebookPen, ChefHat, CalendarDays, TrendingUp, Settin
 import { cn } from "@/lib/utils";
 import { AuraMark } from "@/components/AuraMark";
 import { useTheme } from "@/lib/theme";
+import type { Profile } from "@/lib/api";
 
 export type NavDestination =
   | "dashboard"
@@ -23,9 +24,13 @@ const ITEMS: { id: NavDestination; label: string; icon: typeof LayoutDashboard }
 export function NavRail({
   active,
   onSelect,
+  activeProfile,
+  onSwitchProfile,
 }: {
   active: NavDestination;
   onSelect: (destination: NavDestination) => void;
+  activeProfile?: Profile | null;
+  onSwitchProfile?: () => void;
 }) {
   const { theme, toggleTheme } = useTheme();
 
@@ -35,6 +40,22 @@ export function NavRail({
         <AuraMark className="size-7 rounded-md" />
         <span className="font-display text-sm font-bold text-foreground">AuraFit AI</span>
       </div>
+
+      {activeProfile && (
+        <button
+          type="button"
+          onClick={onSwitchProfile}
+          className="mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent"
+        >
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+            style={{ backgroundColor: activeProfile.avatar_color }}
+          >
+            {activeProfile.name.charAt(0).toUpperCase()}
+          </span>
+          <span className="truncate text-xs font-medium text-foreground">{activeProfile.name}</span>
+        </button>
+      )}
 
       <div className="mb-6 flex items-center gap-1.5 rounded-md border border-success/30 bg-success/5 px-2.5 py-1.5">
         <ShieldCheck className="size-3.5 shrink-0 text-success" />

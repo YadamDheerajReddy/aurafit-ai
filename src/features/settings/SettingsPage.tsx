@@ -7,6 +7,7 @@ import {
   Loader2,
   PenLine,
   ShieldCheck,
+  Users,
   WifiOff,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -22,9 +23,11 @@ import { exportData, setWaterGoal, type UserState } from "@/lib/api";
 export function SettingsPage({
   userState,
   onDataChanged,
+  onSwitchProfile,
 }: {
   userState: UserState;
   onDataChanged: () => void;
+  onSwitchProfile: () => void;
 }) {
   const [exporting, setExporting] = useState(false);
   const [exportedTo, setExportedTo] = useState<string | null>(null);
@@ -81,6 +84,18 @@ export function SettingsPage({
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">Local &amp; Private, and your data.</p>
       </div>
+
+      <Card>
+        <CardContent className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Users className="size-4 text-muted-foreground" />
+            <p className="text-sm text-foreground">Switch profile or manage who uses this device.</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={onSwitchProfile}>
+            Switch Profile
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">

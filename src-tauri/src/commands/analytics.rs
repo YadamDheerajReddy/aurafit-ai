@@ -3,6 +3,8 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use tauri::State;
 
+use crate::commands::profiles::ActiveProfile;
+
 #[derive(Debug, Serialize)]
 pub struct WeightPoint {
     pub date: String,
@@ -61,14 +63,18 @@ fn compute_streak(mut dates: Vec<NaiveDate>) -> i32 {
 #[tauri::command]
 pub async fn get_progress_charts(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     days: i64,
 ) -> Result<ProgressData, String> {
+    let profile_id = active.get();
+
     let weight_rows: Vec<(String, f64)> = sqlx::query_as(
         "SELECT date(logged_at), weight_kg FROM weight_history
-         WHERE logged_at >= datetime('now', ?)
+         WHERE logged_at >= datetime('now', ?) AND profile_id = ?
          ORDER BY logged_at ASC",
     )
     .bind(format!("-{days} days"))
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -81,11 +87,12 @@ pub async fn get_progress_charts(
     let macro_rows: Vec<(String, f64, f64, f64, f64)> = sqlx::query_as(
         "SELECT date(logged_at), SUM(total_calories), SUM(total_protein_g), SUM(total_carbs_g), SUM(total_fat_g)
          FROM food_log
-         WHERE logged_at >= datetime('now', ?)
+         WHERE logged_at >= datetime('now', ?) AND profile_id = ?
          GROUP BY date(logged_at)
          ORDER BY date(logged_at) ASC",
     )
     .bind(format!("-{days} days"))
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -102,14 +109,16 @@ pub async fn get_progress_charts(
         .collect();
 
     let target_calories: Option<i32> = sqlx::query_scalar(
-        "SELECT target_calories FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+        "SELECT target_calories FROM goals WHERE is_active = 1 AND profile_id = ? ORDER BY id DESC LIMIT 1",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let logged_dates: Vec<String> =
-        sqlx::query_scalar("SELECT DISTINCT date(logged_at) FROM food_log")
+        sqlx::query_scalar("SELECT DISTINCT date(logged_at) FROM food_log WHERE profile_id = ?")
+            .bind(profile_id)
             .fetch_all(pool.inner())
             .await
             .map_err(|e| e.to_string())?;

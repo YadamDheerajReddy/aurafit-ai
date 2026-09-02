@@ -26,6 +26,27 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Pulls the "## v<tag>" section out of CHANGELOG.md so the same text
+      # becomes both the GitHub Release body and the updater's latest.json
+      # "notes" field -- which is what the in-app "Check for Updates" card
+      # shows the user before they install.
+      - name: Extract changelog section for this tag
+        id: changelog
+        shell: bash
+        run: |
+          awk -v ver="${{ github.ref_name }}" '
+            $0 == "## " ver { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > release_notes.md
+          echo "--- extracted release notes ---"
+          cat release_notes.md
+          {
+            echo "notes<<CHANGELOG_EOF"
+            cat release_notes.md
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Install Linux system dependencies (Tauri v2)
         if: matrix.platform == 'ubuntu-latest'
         run: |
@@ -71,6 +92,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "AuraFit AI ${{ github.ref_name }}"
+          releaseBody: ${{ steps.changelog.outputs.notes }}
           releaseDraft: true
           prerelease: false
           includeUpdaterJson: true

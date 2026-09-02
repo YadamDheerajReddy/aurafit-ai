@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tauri::State;
 
+use crate::commands::profiles::ActiveProfile;
 use crate::db::models::{GuardrailRow, RecipeIngredientRow, RecipeRow, SavedRecipe};
 use crate::ollama::client::OllamaClient;
 use crate::ollama::schemas::{GeneratedRecipe, RecipeCandidates};
@@ -138,8 +139,10 @@ pub struct RecipeGenerationResult {
 #[tauri::command]
 pub async fn generate_recipes(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: GenerateRecipesInput,
 ) -> Result<RecipeGenerationResult, String> {
+    let profile_id = active.get();
     let pantry_items: Vec<String> = input
         .pantry_items
         .into_iter()
@@ -151,8 +154,9 @@ pub async fn generate_recipes(
     }
 
     let guardrails = sqlx::query_as::<_, GuardrailRow>(
-        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1",
+        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1 AND profile_id = ?",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -167,28 +171,32 @@ pub async fn generate_recipes(
         .map(|g| g.value.clone())
         .collect();
 
-    let avoided: Vec<String> = sqlx::query_scalar("SELECT name FROM avoided_ingredients")
+    let avoided: Vec<String> = sqlx::query_scalar("SELECT name FROM avoided_ingredients WHERE profile_id = ?")
+        .bind(profile_id)
         .fetch_all(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
 
     let target_calories: Option<i32> = sqlx::query_scalar(
-        "SELECT target_calories FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+        "SELECT target_calories FROM goals WHERE is_active = 1 AND profile_id = ? ORDER BY id DESC LIMIT 1",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
     let target_protein: Option<f64> = sqlx::query_scalar(
-        "SELECT target_protein_g FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+        "SELECT target_protein_g FROM goals WHERE is_active = 1 AND profile_id = ? ORDER BY id DESC LIMIT 1",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let todays_totals: (f64, f64) = sqlx::query_as(
         "SELECT COALESCE(SUM(total_calories),0), COALESCE(SUM(total_protein_g),0)
-         FROM food_log WHERE date(logged_at) = date('now')",
+         FROM food_log WHERE date(logged_at) = date('now') AND profile_id = ?",
     )
+    .bind(profile_id)
     .fetch_one(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -257,16 +265,21 @@ pub struct IngredientInput {
 }
 
 #[tauri::command]
-pub async fn save_recipe(pool: State<'_, SqlitePool>, input: SaveRecipeInput) -> Result<i64, String> {
+pub async fn save_recipe(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+    input: SaveRecipeInput,
+) -> Result<i64, String> {
     let instructions_json = serde_json::to_string(&input.instructions).map_err(|e| e.to_string())?;
 
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
     let recipe_id: i64 = sqlx::query_scalar(
         "INSERT INTO recipes
-           (title, prep_time_minutes, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving, instructions, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'generated') RETURNING id",
+           (profile_id, title, prep_time_minutes, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving, instructions, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated') RETURNING id",
     )
+    .bind(active.get())
     .bind(&input.title)
     .bind(input.prep_time_minutes)
     .bind(input.servings)
@@ -294,11 +307,15 @@ pub async fn save_recipe(pool: State<'_, SqlitePool>, input: SaveRecipeInput) ->
 }
 
 #[tauri::command]
-pub async fn get_saved_recipes(pool: State<'_, SqlitePool>) -> Result<Vec<SavedRecipe>, String> {
+pub async fn get_saved_recipes(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+) -> Result<Vec<SavedRecipe>, String> {
     let recipes = sqlx::query_as::<_, RecipeRow>(
         "SELECT id, title, prep_time_minutes, servings, calories_per_serving, protein_g_per_serving, carbs_g_per_serving, fat_g_per_serving, instructions, source, created_at
-         FROM recipes ORDER BY created_at DESC",
+         FROM recipes WHERE profile_id = ? ORDER BY created_at DESC",
     )
+    .bind(active.get())
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -319,9 +336,14 @@ pub async fn get_saved_recipes(pool: State<'_, SqlitePool>) -> Result<Vec<SavedR
 }
 
 #[tauri::command]
-pub async fn delete_recipe(pool: State<'_, SqlitePool>, id: i64) -> Result<(), String> {
-    sqlx::query("DELETE FROM recipes WHERE id = ?")
+pub async fn delete_recipe(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+    id: i64,
+) -> Result<(), String> {
+    sqlx::query("DELETE FROM recipes WHERE id = ? AND profile_id = ?")
         .bind(id)
+        .bind(active.get())
         .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;

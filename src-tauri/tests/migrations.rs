@@ -83,7 +83,7 @@ async fn migrations_apply_and_preserve_data_and_constraints() {
         .fetch_all(&pool)
         .await
         .expect("read schema_migrations");
-    assert_eq!(applied, vec![1, 2, 3, 4, 5, 6]);
+    assert_eq!(applied, vec![1, 2, 3, 4, 5, 6, 7]);
 
     // 0004 adds a nullable target_weight_kg column to goals without disturbing existing rows.
     sqlx::query(

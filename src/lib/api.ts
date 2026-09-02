@@ -1,5 +1,52 @@
 import { invoke } from "@tauri-apps/api/core";
 
+// ---------------------------------------------------------------------------
+// Profiles (one device, up to 3, Netflix-style)
+// ---------------------------------------------------------------------------
+
+export interface Profile {
+  id: number;
+  name: string;
+  avatar_color: string;
+  created_at: string;
+  last_active_at: string;
+}
+
+export const MAX_PROFILES = 3;
+
+export const PROFILE_COLORS = [
+  "#7C3AED", // violet
+  "#0D9488", // teal
+  "#F59E0B", // amber
+  "#F43F5E", // rose
+  "#3B82F6", // blue
+  "#10B981", // emerald
+] as const;
+
+export function getProfiles(): Promise<Profile[]> {
+  return invoke("get_profiles");
+}
+
+export function getActiveProfileId(): Promise<number> {
+  return invoke("get_active_profile_id");
+}
+
+export function createProfile(name: string, avatarColor: string): Promise<number> {
+  return invoke("create_profile", { input: { name, avatar_color: avatarColor } });
+}
+
+export function updateProfile(id: number, name: string, avatarColor: string): Promise<void> {
+  return invoke("update_profile", { input: { id, name, avatar_color: avatarColor } });
+}
+
+export function switchProfile(id: number): Promise<void> {
+  return invoke("switch_profile", { id });
+}
+
+export function deleteProfile(id: number): Promise<void> {
+  return invoke("delete_profile", { id });
+}
+
 export type Sex = "male" | "female";
 export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "very_active";
 export type GoalType = "aggressive_fat_loss" | "lean_bulk" | "recomposition" | "maintenance";

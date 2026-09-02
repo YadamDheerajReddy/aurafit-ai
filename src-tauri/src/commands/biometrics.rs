@@ -3,6 +3,7 @@ use sqlx::SqlitePool;
 use tauri::State;
 
 use crate::calc::nutrition::{self, ActivityLevel, GoalType, MacroTargets, Sex};
+use crate::commands::profiles::ActiveProfile;
 use crate::db::models::{GoalRow, GuardrailRow, LatestWeightRow, ProfileRow};
 
 fn activity_level_to_str(level: ActivityLevel) -> &'static str {
@@ -88,14 +89,16 @@ pub struct SaveProfileInput {
 #[tauri::command]
 pub async fn save_profile(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: SaveProfileInput,
 ) -> Result<(), String> {
+    let profile_id = active.get();
     let name = input.name.map(|n| n.trim().to_string()).filter(|n| !n.is_empty());
     let cuisine = input.cuisine_preference.filter(|c| !c.is_empty());
 
     sqlx::query(
         "INSERT INTO user_profile (id, name, sex, date_of_birth, height_cm, activity_level, cuisine_preference)
-         VALUES (1, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            sex = excluded.sex,
@@ -105,6 +108,7 @@ pub async fn save_profile(
            cuisine_preference = excluded.cuisine_preference,
            updated_at = datetime('now')",
     )
+    .bind(profile_id)
     .bind(&name)
     .bind(sex_to_str(input.sex))
     .bind(&input.date_of_birth)
@@ -115,7 +119,18 @@ pub async fn save_profile(
     .await
     .map_err(|e| e.to_string())?;
 
-    sqlx::query("INSERT INTO weight_history (weight_kg, note) VALUES (?, 'Onboarding')")
+    // Keep the profile's own display name in sync with their biometric name.
+    if let Some(name) = &name {
+        sqlx::query("UPDATE profiles SET name = ? WHERE id = ?")
+            .bind(name)
+            .bind(profile_id)
+            .execute(pool.inner())
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
+    sqlx::query("INSERT INTO weight_history (profile_id, weight_kg, note) VALUES (?, ?, 'Onboarding')")
+        .bind(profile_id)
         .bind(input.weight_kg)
         .execute(pool.inner())
         .await
@@ -132,19 +147,26 @@ pub struct SaveGoalInput {
 }
 
 #[tauri::command]
-pub async fn save_goal(pool: State<'_, SqlitePool>, input: SaveGoalInput) -> Result<(), String> {
+pub async fn save_goal(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+    input: SaveGoalInput,
+) -> Result<(), String> {
+    let profile_id = active.get();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
-    sqlx::query("UPDATE goals SET is_active = 0 WHERE is_active = 1")
+    sqlx::query("UPDATE goals SET is_active = 0 WHERE is_active = 1 AND profile_id = ?")
+        .bind(profile_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
 
     sqlx::query(
         "INSERT INTO goals
-           (goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg, is_active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1)",
+           (profile_id, goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg, is_active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
     )
+    .bind(profile_id)
     .bind(goal_type_to_str(input.goal_type))
     .bind(input.targets.calories)
     .bind(input.targets.protein_g)
@@ -172,26 +194,33 @@ pub struct SetGuardrailsInput {
 #[tauri::command]
 pub async fn set_guardrails(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: SetGuardrailsInput,
 ) -> Result<(), String> {
+    let profile_id = active.get();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
-    sqlx::query("DELETE FROM dietary_guardrails")
+    sqlx::query("DELETE FROM dietary_guardrails WHERE profile_id = ?")
+        .bind(profile_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
 
     for diet in &input.diets {
-        sqlx::query("INSERT INTO dietary_guardrails (constraint_type, value) VALUES ('diet', ?)")
-            .bind(diet)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "INSERT INTO dietary_guardrails (profile_id, constraint_type, value) VALUES (?, 'diet', ?)",
+        )
+        .bind(profile_id)
+        .bind(diet)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
     }
     for allergy in &input.allergies {
         sqlx::query(
-            "INSERT INTO dietary_guardrails (constraint_type, value) VALUES ('allergy', ?)",
+            "INSERT INTO dietary_guardrails (profile_id, constraint_type, value) VALUES (?, 'allergy', ?)",
         )
+        .bind(profile_id)
         .bind(allergy)
         .execute(&mut *tx)
         .await
@@ -213,11 +242,14 @@ pub struct SetAvoidedIngredientsInput {
 #[tauri::command]
 pub async fn set_avoided_ingredients(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: SetAvoidedIngredientsInput,
 ) -> Result<(), String> {
+    let profile_id = active.get();
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
-    sqlx::query("DELETE FROM avoided_ingredients")
+    sqlx::query("DELETE FROM avoided_ingredients WHERE profile_id = ?")
+        .bind(profile_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| e.to_string())?;
@@ -228,7 +260,8 @@ pub async fn set_avoided_ingredients(
         .map(|s| s.trim())
         .filter(|s| !s.is_empty())
     {
-        sqlx::query("INSERT OR IGNORE INTO avoided_ingredients (name) VALUES (?)")
+        sqlx::query("INSERT OR IGNORE INTO avoided_ingredients (profile_id, name) VALUES (?, ?)")
+            .bind(profile_id)
             .bind(ingredient)
             .execute(&mut *tx)
             .await
@@ -247,12 +280,15 @@ pub struct SetWaterGoalInput {
 #[tauri::command]
 pub async fn set_water_goal(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: SetWaterGoalInput,
 ) -> Result<(), String> {
+    let key = format!("water_goal_ml:{}", active.get());
     sqlx::query(
-        "INSERT INTO app_settings (key, value) VALUES ('water_goal_ml', ?)
+        "INSERT INTO app_settings (key, value) VALUES (?, ?)
          ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
+    .bind(&key)
     .bind(input.goal_ml.to_string())
     .execute(pool.inner())
     .await
@@ -273,45 +309,58 @@ pub struct UserState {
 
 /// Read-back for app launch: is onboarding already complete, and if so,
 /// what are the user's current targets (used by the placeholder Dashboard).
+/// Everything here is scoped to the currently active profile.
 #[tauri::command]
-pub async fn get_user_state(pool: State<'_, SqlitePool>) -> Result<UserState, String> {
+pub async fn get_user_state(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+) -> Result<UserState, String> {
+    let profile_id = active.get();
+
     let profile = sqlx::query_as::<_, ProfileRow>(
-        "SELECT name, sex, date_of_birth, height_cm, activity_level, cuisine_preference FROM user_profile WHERE id = 1",
+        "SELECT name, sex, date_of_birth, height_cm, activity_level, cuisine_preference FROM user_profile WHERE id = ?",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let latest_weight = sqlx::query_as::<_, LatestWeightRow>(
-        "SELECT weight_kg FROM weight_history ORDER BY logged_at DESC, id DESC LIMIT 1",
+        "SELECT weight_kg FROM weight_history WHERE profile_id = ? ORDER BY logged_at DESC, id DESC LIMIT 1",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let active_goal = sqlx::query_as::<_, GoalRow>(
         "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg
-         FROM goals WHERE is_active = 1 ORDER BY id DESC LIMIT 1",
+         FROM goals WHERE is_active = 1 AND profile_id = ? ORDER BY id DESC LIMIT 1",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let guardrails = sqlx::query_as::<_, GuardrailRow>(
-        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1",
+        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1 AND profile_id = ?",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let avoided_ingredients: Vec<String> =
-        sqlx::query_scalar("SELECT name FROM avoided_ingredients ORDER BY name")
+        sqlx::query_scalar("SELECT name FROM avoided_ingredients WHERE profile_id = ? ORDER BY name")
+            .bind(profile_id)
             .fetch_all(pool.inner())
             .await
             .map_err(|e| e.to_string())?;
 
+    let water_goal_key = format!("water_goal_ml:{profile_id}");
     let water_goal_raw: Option<String> =
-        sqlx::query_scalar("SELECT value FROM app_settings WHERE key = 'water_goal_ml'")
+        sqlx::query_scalar("SELECT value FROM app_settings WHERE key = ?")
+            .bind(&water_goal_key)
             .fetch_optional(pool.inner())
             .await
             .map_err(|e| e.to_string())?;

@@ -2,6 +2,7 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 use tauri::State;
 
+use crate::commands::profiles::ActiveProfile;
 use crate::db::models::{FoodLogEntry, FoodLogItemRow, FoodLogRow, WeightHistoryRow};
 
 #[derive(Debug, Deserialize)]
@@ -31,11 +32,13 @@ pub struct SaveFoodLogInput {
 #[tauri::command]
 pub async fn save_food_log(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     input: SaveFoodLogInput,
 ) -> Result<i64, String> {
     if input.items.is_empty() {
         return Err("at least one item is required".to_string());
     }
+    let profile_id = active.get();
 
     let total_calories: f64 = input.items.iter().map(|i| i.calories).sum();
     let total_protein_g: f64 = input.items.iter().map(|i| i.protein_g).sum();
@@ -45,9 +48,10 @@ pub async fn save_food_log(
     let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
     let food_log_id: i64 = sqlx::query_scalar(
-        "INSERT INTO food_log (source, total_calories, total_protein_g, total_carbs_g, total_fat_g)
-         VALUES (?, ?, ?, ?, ?) RETURNING id",
+        "INSERT INTO food_log (profile_id, source, total_calories, total_protein_g, total_carbs_g, total_fat_g)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
     )
+    .bind(profile_id)
     .bind(&input.source)
     .bind(total_calories)
     .bind(total_protein_g)
@@ -84,13 +88,17 @@ pub async fn save_food_log(
 /// Today's logged meals with their items, most recent first — powers the
 /// Dashboard's macro rings and log list.
 #[tauri::command]
-pub async fn get_todays_log(pool: State<'_, SqlitePool>) -> Result<Vec<FoodLogEntry>, String> {
+pub async fn get_todays_log(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+) -> Result<Vec<FoodLogEntry>, String> {
     let logs = sqlx::query_as::<_, FoodLogRow>(
         "SELECT id, logged_at, source, total_calories, total_protein_g, total_carbs_g, total_fat_g
          FROM food_log
-         WHERE date(logged_at) = date('now')
+         WHERE date(logged_at) = date('now') AND profile_id = ?
          ORDER BY logged_at DESC",
     )
+    .bind(active.get())
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -115,10 +123,17 @@ pub async fn get_todays_log(pool: State<'_, SqlitePool>) -> Result<Vec<FoodLogEn
 /// Cascades to food_log_items via ON DELETE CASCADE (foreign_keys pragma
 /// enabled in db::pool::connect). Matches the App Flow edge case: deleting
 /// the only meal of the day reverts the Dashboard to its empty state.
+/// Scoped to the active profile so one profile can never delete another's
+/// entry even if it somehow had the row id.
 #[tauri::command]
-pub async fn delete_food_log(pool: State<'_, SqlitePool>, id: i64) -> Result<(), String> {
-    sqlx::query("DELETE FROM food_log WHERE id = ?")
+pub async fn delete_food_log(
+    pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
+    id: i64,
+) -> Result<(), String> {
+    sqlx::query("DELETE FROM food_log WHERE id = ? AND profile_id = ?")
         .bind(id)
+        .bind(active.get())
         .execute(pool.inner())
         .await
         .map_err(|e| e.to_string())?;
@@ -128,10 +143,12 @@ pub async fn delete_food_log(pool: State<'_, SqlitePool>, id: i64) -> Result<(),
 #[tauri::command]
 pub async fn save_weight_entry(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     weight_kg: f64,
     note: Option<String>,
 ) -> Result<(), String> {
-    sqlx::query("INSERT INTO weight_history (weight_kg, note) VALUES (?, ?)")
+    sqlx::query("INSERT INTO weight_history (profile_id, weight_kg, note) VALUES (?, ?, ?)")
+        .bind(active.get())
         .bind(weight_kg)
         .bind(note)
         .execute(pool.inner())
@@ -143,14 +160,16 @@ pub async fn save_weight_entry(
 #[tauri::command]
 pub async fn get_weight_history(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     days: i64,
 ) -> Result<Vec<WeightHistoryRow>, String> {
     sqlx::query_as::<_, WeightHistoryRow>(
         "SELECT id, weight_kg, logged_at, note FROM weight_history
-         WHERE logged_at >= datetime('now', ?)
+         WHERE logged_at >= datetime('now', ?) AND profile_id = ?
          ORDER BY logged_at ASC",
     )
     .bind(format!("-{days} days"))
+    .bind(active.get())
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())

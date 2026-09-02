@@ -3,6 +3,7 @@ use sqlx::SqlitePool;
 use std::path::PathBuf;
 use tauri::State;
 
+use crate::commands::profiles::ActiveProfile;
 use crate::db::models::{
     FoodLogEntry, FoodLogItemRow, FoodLogRow, GoalRow, GuardrailRow, ProfileRow, WeightHistoryRow,
 };
@@ -27,39 +28,45 @@ struct ExportBundle {
 #[tauri::command]
 pub async fn export_data(
     pool: State<'_, SqlitePool>,
+    active: State<'_, ActiveProfile>,
     dest_dir: String,
 ) -> Result<Vec<String>, String> {
+    let profile_id = active.get();
     let dest = PathBuf::from(&dest_dir);
     if !dest.is_dir() {
         return Err(format!("destination is not a directory: {dest_dir}"));
     }
 
     let profile = sqlx::query_as::<_, ProfileRow>(
-        "SELECT sex, date_of_birth, height_cm, activity_level FROM user_profile WHERE id = 1",
+        "SELECT name, sex, date_of_birth, height_cm, activity_level, cuisine_preference FROM user_profile WHERE id = ?",
     )
+    .bind(profile_id)
     .fetch_optional(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let goals = sqlx::query_as::<_, GoalRow>(
         "SELECT goal_type, target_calories, target_protein_g, target_carbs_g, target_fat_g, target_fiber_g, target_weight_kg
-         FROM goals ORDER BY id ASC",
+         FROM goals WHERE profile_id = ? ORDER BY id ASC",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let guardrails = sqlx::query_as::<_, GuardrailRow>(
-        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1",
+        "SELECT constraint_type, value FROM dietary_guardrails WHERE is_active = 1 AND profile_id = ?",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
 
     let log_rows = sqlx::query_as::<_, FoodLogRow>(
         "SELECT id, logged_at, source, total_calories, total_protein_g, total_carbs_g, total_fat_g
-         FROM food_log ORDER BY logged_at ASC",
+         FROM food_log WHERE profile_id = ? ORDER BY logged_at ASC",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;
@@ -78,8 +85,9 @@ pub async fn export_data(
     }
 
     let weight_history = sqlx::query_as::<_, WeightHistoryRow>(
-        "SELECT id, weight_kg, logged_at, note FROM weight_history ORDER BY logged_at ASC",
+        "SELECT id, weight_kg, logged_at, note FROM weight_history WHERE profile_id = ? ORDER BY logged_at ASC",
     )
+    .bind(profile_id)
     .fetch_all(pool.inner())
     .await
     .map_err(|e| e.to_string())?;

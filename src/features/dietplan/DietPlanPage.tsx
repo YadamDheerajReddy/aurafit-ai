@@ -4,12 +4,14 @@ import {
   AlertTriangle,
   Bookmark,
   CalendarDays,
+  CheckCircle2,
   ChevronDown,
   Clock,
   Download,
   Loader2,
   Sparkles,
   Trash2,
+  UtensilsCrossed,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,7 @@ import {
   generateDietPlan,
   getSavedDietPlans,
   saveDietPlan,
+  saveFoodLog,
   type DietMealCandidate,
   type DietPlanGenerationResult,
   type DietPlanMeal,
@@ -389,6 +392,29 @@ const SLOT_LABELS: Record<string, string> = {
 
 function MealRow({ meal, compact }: { meal: DietMealCandidate; compact?: boolean }) {
   const [expanded, setExpanded] = useState(false);
+  const [logging, setLogging] = useState(false);
+  const [logged, setLogged] = useState(false);
+
+  async function handleLog() {
+    setLogging(true);
+    try {
+      await saveFoodLog("recipe", [
+        {
+          usda_fdc_id: null,
+          name: meal.dish_name,
+          estimated_grams: 0,
+          calories: meal.calories,
+          protein_g: meal.protein_g,
+          carbs_g: meal.carbs_g,
+          fat_g: meal.fat_g,
+          confidence: null,
+        },
+      ]);
+      setLogged(true);
+    } finally {
+      setLogging(false);
+    }
+  }
 
   return (
     <Card>
@@ -428,16 +454,34 @@ function MealRow({ meal, compact }: { meal: DietMealCandidate; compact?: boolean
           </div>
         </div>
 
-        {(meal.ingredients.length > 0 || meal.instructions.length > 0) && (
-          <button
-            type="button"
-            onClick={() => setExpanded((e) => !e)}
-            className="flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+        <div className="flex flex-wrap items-center gap-3">
+          {(meal.ingredients.length > 0 || meal.instructions.length > 0) && (
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              className="flex w-fit items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
+              {expanded ? "Hide recipe" : "View recipe"}
+            </button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleLog}
+            disabled={logging || logged}
+            className="h-7 gap-1.5 px-2 text-xs"
           >
-            <ChevronDown className={cn("size-3.5 transition-transform", expanded && "rotate-180")} />
-            {expanded ? "Hide recipe" : "View recipe"}
-          </button>
-        )}
+            {logging ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : logged ? (
+              <CheckCircle2 className="size-3.5 text-success" />
+            ) : (
+              <UtensilsCrossed className="size-3.5" />
+            )}
+            {logged ? "Logged" : "Log this meal"}
+          </Button>
+        </div>
 
         {expanded && (
           <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">

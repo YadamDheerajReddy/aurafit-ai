@@ -49,10 +49,29 @@ export function UpdateCheckCard() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {status.kind === "available" ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
             <p className="text-sm text-foreground">
               Version {status.update.version} is available (you're on {status.update.currentVersion}).
             </p>
+            {status.update.body?.trim() && (
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2.5">
+                <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                  What's new
+                </p>
+                <ul className="flex flex-col gap-1 text-sm text-foreground">
+                  {status.update.body
+                    .split("\n")
+                    .map((line) => line.replace(/^[-*]\s*/, "").replace(/\*\*/g, "").trim())
+                    .filter(Boolean)
+                    .map((line, i) => (
+                      <li key={i} className="flex gap-1.5">
+                        <span className="text-muted-foreground">•</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
             <Button
               onClick={() => handleInstall(status.update)}
               className="w-fit gap-1.5"

@@ -81,11 +81,27 @@ impl OllamaClient {
     ) -> Result<String, String> {
         let prompt = with_retry_context(
             &format!(
-                "The user describes a meal they ate: \"{description}\". Identify each distinct \
-                 food item mentioned, and for each one estimate its typical weight in grams and \
-                 its calories, protein, carbs, and fat using standard nutrition data for that \
-                 food. If a quantity isn't given, assume one typical serving. Respond only in \
-                 the given JSON schema."
+                "You are a precise nutrition estimator. The user describes a meal they ate: \
+                 \"{description}\". Follow these rules exactly:\n\
+                 1. Identify each genuinely distinct food item actually mentioned or clearly \
+                 implied (e.g. \"a chicken sandwich\" implies bread and chicken, but don't \
+                 invent sides, drinks, or condiments that weren't said or obviously implied).\n\
+                 2. Recognize casual, regional, and non-English dish names (e.g. \"biryani\", \
+                 \"tacos\", \"a full english\") and decompose them into their standard \
+                 constituent ingredients using real-world culinary knowledge, rather than \
+                 guessing or treating the dish as one opaque blob when it's actually a known \
+                 dish with well-established components.\n\
+                 3. For each item, give ONE single best-estimate number per field (grams, \
+                 calories, protein, carbs, fat) — never a range, never a null, never \"unknown\". \
+                 If exact quantity isn't stated, assume one typical real-world serving for that \
+                 specific food (a home-cooked portion, not a restaurant supersize) and reflect \
+                 that assumption in your confidence rating rather than in the numbers themselves.\n\
+                 4. Set confidence to \"high\" only when both the food and its quantity are \
+                 unambiguous from the description; \"medium\" when the food is clear but the \
+                 quantity was assumed; \"low\" when the food itself is vague or could plausibly \
+                 mean several different things.\n\
+                 5. Do not pad the list with items to seem thorough, and do not omit an item \
+                 that was clearly mentioned. Respond only in the given JSON schema."
             ),
             retry_context.as_deref(),
         );
